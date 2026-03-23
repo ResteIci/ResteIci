@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResteIci — Tu n'es pas seul(e)</title>
+<meta name="description" content="ResteIci est une communauté bienveillante contre le harcèlement et pour la prévention du suicide. Partage, encourage, témoigne.">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Google AdSense — remplace ca-pub-XXXXXXXXXXXXXXXX par ton vrai ID AdSense -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+/* ============================================================
+   CSS VARIABLES & THEMES
+============================================================ */
+:root {
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'Sora', sans-serif;
+  --radius: 18px;
+  --radius-sm: 10px;
+  --radius-pill: 50px;
+  --transition: 0.22s cubic-bezier(.4,0,.2,1);
+}
+
+[data-theme="dark"] {
+  --bg: #0b0d12;
+  --bg2: #10131a;
+  --surface: #14171f;
+  --surface2: #1c202d;
+  --surface3: #232838;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #eceaf5;
+  --text2: #a8a5bc;
+  --text3: #6a677e;
+  --accent: #f5a96b;
+  --accent-dim: rgba(245,169,107,0.12);
+  --blue: #7ec8e3;
+  --blue-dim: rgba(126,200,227,0.1);
+  --purple: #c47fb5;
+  --purple-dim: rgba(196,127,181,0.1);
+  --green: #72c98a;
+  --green-dim: rgba(114,201,138,0.1);
+  --red: #e07878;
+  --red-dim: rgba(224,120,120,0.1);
+  --shadow: 0 8px 40px rgba(0,0,0,0.4);
+}
+
+[data-theme="light"] {
+  --bg: #f5f4f0;
+  --bg2: #eeece8;
+  --surface: #ffffff;
+  --surface2: #f5f4f1;
+  --surface3: #ede9e3;
+  --border: rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.12);
+  --text: #1a1825;
+  --text2: #5a5670;
+  --text3: #9a96a8;
+  --accent: #d4783a;
+  --accent-dim: rgba(212,120,58,0.1);
+  --blue: #2d7fa0;
+  --blue-dim: rgba(45,127,160,0.1);
+  --purple: #8a3f7a;
+  --purple-dim: rgba(138,63,122,0.08);
+  --green: #2e7a45;
+  --green-dim: rgba(46,122,69,0.1);
+  --red: #b84040;
+  --red-dim: rgba(184,64,64,0.1);
+  --shadow: 0 8px 40px rgba(0,0,0,0.08);
+}
+
+/* ============================================================
+   RESET & BASE
+============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background var(--transition), color var(--transition);
+  line-height: 1.6;
+}
+
+/* Noise texture */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.5;
+}
+
+/* Ambient orbs */
+.orb { position: fixed; border-radius: 50%; filter: blur(140px); pointer-events: none; z-index: 0; }
+.orb1 { width: 600px; height: 600px; background: rgba(245,169,107,0.055); top: -200px; left: -150px; }
+.orb2 { width: 500px; height: 500px; background: rgba(126,200,227,0.05); bottom: 0; right: -100px; }
+.orb3 { width: 350px; height: 350px; background: rgba(196,127,181,0.045); top: 40%; left: 35%; }
+
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: var(--font-body); }
+input, textarea, select { font-family: var(--font-body); }
+img { max-width: 100%; }
+
+.hidden { display: none !important; }
+
+/* ============================================================
+   SCROLLBAR
+============================================================ */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 10px; }
+
+/* ============================================================
+   LAYOUT
+============================================================ */
+.container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+.container-wide { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+/* ============================================================
+   HEADER
+============================================================ */
+#header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(11,13,18,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+[data-theme="light"] #header { background: rgba(245,244,240,0.88); }
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+.logo span { color: var(--text); font-style: italic; }
+
+.header-search {
+  flex: 1;
+  max-width: 380px;
+  position: relative;
+}
+
+.header-search input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 9px 16px 9px 40px;
+  font-size: 0.875rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color var(--transition);
+}
+.header-search input:focus { border-color: var(--accent); }
+.header-search input::placeholder { color: var(--text3); }
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text3);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.header-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+.icon-btn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+.icon-btn:hover { background: var(--surface3); color: var(--text); border-color: var(--border2); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 20px;
+  border-radius: var(--radius-pill);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  transition: all var(--transition);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #1a0a00; font-weight: 600; box-shadow: 0 4px 20px rgba(245,169,107,0.25); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(245,169,107,0.35); filter: brightness(1.07); }
+.btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--surface3); color: var(--text); }
+.btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid rgba(224,120,120,0.2); }
+.btn-danger:hover { background: var(--red); color: white; }
+.btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+
+/* User avatar button */
+.user-avatar-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  border: none;
+  color: white;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform var(--transition);
+}
+.user-avatar-btn:hover { transform: scale(1.08); }
+
+/* ============================================================
+   NAV TABS
+============================================================ */
+.nav-tabs {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 67px;
+  z-index: 90;
+}
+.nav-tabs-inner {
+  display: flex;
+  gap: 0;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  overflow-x: auto;
+}
+.nav-tabs-inner::-webkit-scrollbar { display: none; }
+
+.nav-tab {
+  padding: 14px 20px;
+  border: none;
+  background: none;
+  color: var(--text3);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.nav-tab:hover { color: var(--text2); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ============================================================
+   HERO
+============================================================ */
+#page-home { position: relative; z-index: 1; }
+
+.hero {
+  padding: 90px 24px 70px;
+  text-align: center;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--green-dim);
+  border: 1px solid rgba(114,201,138,0.2);
+  color: var(--green);
+  padding: 6px 18px;
+  border-radius: var(--radius-pill);
+  font-size: 0.775rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  margin-bottom: 30px;
+  animation: fadeUp 0.5s ease both;
+}
+
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 7vw, 4.8rem);
+  line-height: 1.08;
+  font-weight: 700;
+  margin-bottom: 22px;
+  animation: fadeUp 0.5s 0.08s ease both;
+}
+.hero h1 em { color: var(--accent); font-style: italic; }
+
+.hero-sub {
+  font-size: 1.05rem;
+  color: var(--text2);
+  line-height: 1.75;
+  max-width: 520px;
+  margin: 0 auto 40px;
+  font-weight: 300;
+  animation: fadeUp 0.5s 0.16s ease both;
+}
+
+.hero-cta {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  animation: fadeUp 0.5s 0.24s ease both;
+}
+
+/* Stats strip */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 0 24px 60px;
+  max-width: 960px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.stat-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+  text-align: center;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.stat-box:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.stat-num {
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: var(--accent);
+  display: block;
+  line-height: 1;
+}
+.stat-label { font-size: 0.775rem; color: var(--text3); margin-top: 6px; font-weight: 500; }
+
+/* ============================================================
+   URGENCE BANNER
+============================================================ */
+.urgence {
+  max-width: 960px;
+  margin: 0 auto 48px;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+.urgence-inner {
+  background: linear-gradient(120deg, rgba(224,120,120,0.1), rgba(196,127,181,0.07));
+  border: 1px solid rgba(224,120,120,0.18);
+  border-radius: var(--radius);
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.urgence-icon { font-size: 1.6rem; flex-shrink: 0; }
+.urgence-text strong { display: block; color: var(--red); font-size: 0.9rem; margin-bottom: 3px; }
+.urgence-text p { font-size: 0.82rem; color: var(--text2); }
+.urgence-text a { color: var(--blue); font-weight: 600; }
+
+/* ============================================================
+   ADSENSE SLOTS
+============================================================ */
+.ad-slot {
+  max-width: 960px;
+  margin: 0 auto 40px;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+.ad-slot-inner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 90px;
+  overflow: hidden;
+}
+.ad-label {
+  font-size: 0.65rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  writing-mode: vertical-rl;
+  flex-shrink: 0;
+}
+.ad-slot-inner ins { flex: 1; display: block; }
+
+/* ============================================================
+   FILTERS BAR
+============================================================ */
+.filters-bar {
+  max-width: 960px;
+  margin: 0 auto 24px;
+  padding: 0 24px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+
+.filter-chip {
+  padding: 6px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  transition: all var(--transition);
+}
+.filter-chip:hover { background: var(--surface2); color: var(--text); }
+.filter-chip.active { background: var(--accent-dim); border-color: rgba(245,169,107,0.3); color: var(--accent); }
+
+.sort-select {
+  margin-left: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  color: var(--text2);
+  outline: none;
+  cursor: pointer;
+}
+
+/* ============================================================
+   FEED
+============================================================ */
+.feed {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   POST CARD
+============================================================ */
+.post-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  position: relative;
+}
+.post-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--accent);
+  opacity: 0.5;
+}
+.post-card[data-type="temoignage"]::before { background: var(--purple); }
+.post-card[data-type="question"]::before { background: var(--blue); }
+.post-card:hover {
+  border-color: var(--border2);
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.post-card-body { padding: 22px 24px; }
+
+.post-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+
+.post-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: white;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform var(--transition);
+}
+.post-avatar:hover { transform: scale(1.07); }
+
+.post-meta { flex: 1; min-width: 0; }
+.post-author { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+.post-author .badge-mod { font-size: 0.65rem; background: var(--accent-dim); color: var(--accent); padding: 1px 7px; border-radius: 50px; margin-left: 6px; font-weight: 600; }
+.post-time { font-size: 0.75rem; color: var(--text3); margin-top: 1px; }
+
+.post-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 11px;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+}
+.tag-enc { background: var(--accent-dim); color: var(--accent); }
+.tag-tem { background: var(--purple-dim); color: var(--purple); }
+.tag-que { background: var(--blue-dim); color: var(--blue); }
+
+.post-content {
+  font-size: 0.975rem;
+  line-height: 1.75;
+  color: var(--text);
+  font-weight: 300;
+  margin-bottom: 18px;
+  word-break: break-word;
+}
+
+/* Reactions */
+.reactions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.reaction-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.82rem;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text2);
+  transition: all var(--transition);
+  font-family: var(--font-body);
+}
+.reaction-btn:hover { border-color: var(--border2); transform: scale(1.05); }
+.reaction-btn.active { background: var(--accent-dim); border-color: rgba(245,169,107,0.3); color: var(--accent); }
+.reaction-btn .count { font-size: 0.78rem; color: var(--text3); }
+.reaction-btn.active .count { color: var(--accent); }
+
+.post-actions { display: flex; gap: 6px; align-items: center; border-top: 1px solid var(--border); padding-top: 14px; }
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 13px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: none;
+  background: none;
+  color: var(--text3);
+  transition: all var(--transition);
+  font-family: var(--font-body);
+}
+.action-btn:hover { background: var(--surface2); color: var(--text2); }
+.action-btn.report:hover { background: var(--red-dim); color: var(--red); }
+
+/* Replies */
+.replies-section {
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  padding: 18px 24px;
+  display: none;
+}
+.replies-section.open { display: block; }
+
+.reply-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+.reply-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.reply-avatar {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.65rem; font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+.reply-author { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+.reply-time { font-size: 0.72rem; color: var(--text3); margin-left: auto; }
+.reply-text { font-size: 0.875rem; line-height: 1.6; color: var(--text2); font-weight: 300; }
+
+.reply-form { display: flex; gap: 10px; margin-top: 14px; }
+.reply-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 9px 18px;
+  font-size: 0.875rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color var(--transition);
+}
+.reply-input:focus { border-color: var(--accent); }
+.reply-input::placeholder { color: var(--text3); }
+
+/* ============================================================
+   WRITE PAGE
+============================================================ */
+#page-write {
+  position: relative; z-index: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.write-header {
+  margin-bottom: 32px;
+}
+.write-header h2 {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+.write-header h2 em { color: var(--accent); font-style: italic; }
+.write-header p { color: var(--text2); font-size: 0.9rem; font-weight: 300; }
+
+.write-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+}
+
+.form-group { margin-bottom: 20px; }
+.form-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.form-input, .form-textarea, .form-select {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  color: var(--text);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.form-input:focus, .form-textarea:focus, .form-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.form-input::placeholder, .form-textarea::placeholder { color: var(--text3); }
+.form-textarea { min-height: 140px; resize: vertical; line-height: 1.7; }
+.form-select option { background: var(--surface2); color: var(--text); }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.char-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+.char-count { font-size: 0.75rem; color: var(--text3); }
+.char-bar-fill { flex: 1; height: 2px; background: var(--border); border-radius: 2px; margin: 0 12px; }
+.char-bar-progress { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.1s; }
+
+.form-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; flex-wrap: wrap; gap: 12px; }
+
+.mod-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text3);
+  background: var(--green-dim);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================
+   PROFILE PAGE
+============================================================ */
+#page-profile { position: relative; z-index: 1; padding: 48px 24px 80px; }
+
+.profile-header {
+  max-width: 720px;
+  margin: 0 auto 40px;
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+.profile-avatar-big {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem; font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.profile-info { flex: 1; }
+.profile-name { font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; margin-bottom: 6px; }
+.profile-bio { color: var(--text2); font-size: 0.9rem; font-weight: 300; margin-bottom: 12px; }
+.profile-stats { display: flex; gap: 20px; }
+.profile-stat { text-align: center; }
+.profile-stat .n { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--accent); display: block; }
+.profile-stat .l { font-size: 0.75rem; color: var(--text3); }
+
+/* ============================================================
+   AUTH PAGES
+============================================================ */
+.auth-page {
+  position: relative; z-index: 1;
+  min-height: calc(100vh - 67px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 44px 40px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: var(--shadow);
+}
+
+.auth-logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.auth-logo .wordmark {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.auth-logo .wordmark span { color: var(--text); font-style: italic; }
+.auth-logo p { color: var(--text3); font-size: 0.85rem; margin-top: 6px; }
+
+.auth-tabs { display: flex; background: var(--surface2); border-radius: var(--radius-pill); padding: 4px; margin-bottom: 28px; }
+.auth-tab {
+  flex: 1;
+  padding: 9px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text3);
+  transition: all var(--transition);
+}
+.auth-tab.active { background: var(--surface); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+
+.auth-divider { text-align: center; color: var(--text3); font-size: 0.8rem; margin: 20px 0; position: relative; }
+.auth-divider::before, .auth-divider::after { content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: var(--border); }
+.auth-divider::before { left: 0; }
+.auth-divider::after { right: 0; }
+
+.auth-switch { text-align: center; margin-top: 20px; font-size: 0.85rem; color: var(--text3); }
+.auth-switch a { color: var(--accent); cursor: pointer; }
+
+/* ============================================================
+   MODALS
+============================================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 36px;
+  width: 100%;
+  max-width: 460px;
+  transform: translateY(20px) scale(0.97);
+  transition: transform 0.2s;
+  position: relative;
+}
+.modal-overlay.open .modal { transform: translateY(0) scale(1); }
+
+.modal-close {
+  position: absolute;
+  top: 16px; right: 18px;
+  background: none; border: none;
+  color: var(--text3); font-size: 1.3rem;
+  line-height: 1;
+  transition: color var(--transition);
+}
+.modal-close:hover { color: var(--text); }
+
+.modal h3 { font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 10px; }
+.modal p { color: var(--text2); font-size: 0.88rem; line-height: 1.65; margin-bottom: 20px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* Donate modal */
+.donate-amounts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 20px 0; }
+.amount-btn {
+  padding: 10px 22px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-weight: 500;
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+  transition: all var(--transition);
+}
+.amount-btn:hover, .amount-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+.paypal-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  background: #0070ba;
+  color: white;
+  padding: 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  font-family: var(--font-body);
+  transition: all var(--transition);
+  text-decoration: none;
+}
+.paypal-btn:hover { background: #005ea6; transform: translateY(-1px); }
+
+/* ============================================================
+   TOAST
+============================================================ */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-pill);
+  padding: 11px 24px;
+  font-size: 0.875rem;
+  color: var(--text);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.3s, opacity 0.3s;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  white-space: nowrap;
+  max-width: 90vw;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.toast.success { border-color: rgba(114,201,138,0.3); }
+.toast.error { border-color: rgba(224,120,120,0.3); }
+
+/* ============================================================
+   EMPTY STATE
+============================================================ */
+.empty-state {
+  text-align: center;
+  padding: 70px 24px;
+  color: var(--text3);
+}
+.empty-state .icon { font-size: 3rem; display: block; margin-bottom: 16px; opacity: 0.5; }
+.empty-state p { font-size: 0.9rem; }
+
+/* ============================================================
+   LOADING SPINNER
+============================================================ */
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 60px auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============================================================
+   DROPDOWN MENU
+============================================================ */
+.dropdown { position: relative; }
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  min-width: 180px;
+  box-shadow: var(--shadow);
+  z-index: 150;
+  display: none;
+}
+.dropdown-menu.open { display: block; animation: fadeUp 0.15s ease; }
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all var(--transition);
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-body);
+}
+.dropdown-item:hover { background: var(--surface2); color: var(--text); }
+.dropdown-item.danger { color: var(--red); }
+.dropdown-item.danger:hover { background: var(--red-dim); }
+.dropdown-divider { height: 1px; background: var(--border); margin: 5px 0; }
+
+/* ============================================================
+   SETUP NOTICE (Supabase)
+============================================================ */
+.setup-notice {
+  max-width: 960px;
+  margin: 0 auto 24px;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+.setup-inner {
+  background: var(--blue-dim);
+  border: 1px solid rgba(126,200,227,0.2);
+  border-radius: var(--radius);
+  padding: 16px 22px;
+  font-size: 0.85rem;
+  color: var(--blue);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.setup-inner a { font-weight: 600; text-decoration: underline; }
+
+/* ============================================================
+   ANIMATIONS
+============================================================ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in { animation: fadeUp 0.35s ease both; }
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+@media (max-width: 768px) {
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .form-row { grid-template-columns: 1fr; }
+  .profile-header { flex-direction: column; }
+  .auth-card { padding: 32px 24px; }
+  .header-search { display: none; }
+  .hero h1 { font-size: 2.4rem; }
+}
+
+@media (max-width: 480px) {
+  .stats-strip { grid-template-columns: 1fr 1fr; }
+  .header-inner { padding: 12px 16px; }
+  .logo { font-size: 1.3rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<!-- ============================================================
+     HEADER
+============================================================ -->
+<header id="header">
+  <div class="header-inner">
+    <div class="logo" onclick="showPage('home')" style="cursor:pointer">Reste<span>Ici</span></div>
+
+    <div class="header-search">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-input" placeholder="Rechercher un message..." oninput="handleSearch(this.value)">
+    </div>
+
+    <div class="header-actions">
+      <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Changer le thème">🌙</button>
+
+      <button class="btn btn-primary btn-sm" onclick="showPage('write')" id="btn-write-header">
+        ✍️ Écrire
+      </button>
+
+      <!-- Auth buttons -->
+      <div id="auth-btns">
+        <button class="btn btn-ghost btn-sm" onclick="showAuth('login')">Connexion</button>
+      </div>
+
+      <!-- User menu (logged in) -->
+      <div class="dropdown hidden" id="user-menu">
+        <button class="user-avatar-btn" id="user-avatar-btn" onclick="toggleDropdown()">?</button>
+        <div class="dropdown-menu" id="user-dropdown">
+          <button class="dropdown-item" onclick="showPage('profile'); toggleDropdown()">👤 Mon profil</button>
+          <button class="dropdown-item" onclick="showPage('write'); toggleDropdown()">✍️ Écrire</button>
+          <div class="dropdown-divider"></div>
+          <button class="dropdown-item danger" onclick="logout(); toggleDropdown()">🚪 Déconnexion</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- NAV TABS -->
+<nav class="nav-tabs" id="nav-tabs">
+  <div class="nav-tabs-inner">
+    <button class="nav-tab active" data-tab="all" onclick="filterFeed('all', this)">🌟 Tout</button>
+    <button class="nav-tab" data-tab="encouragement" onclick="filterFeed('encouragement', this)">💛 Encouragements</button>
+    <button class="nav-tab" data-tab="temoignage" onclick="filterFeed('temoignage', this)">📖 Témoignages</button>
+    <button class="nav-tab" data-tab="question" onclick="filterFeed('question', this)">💬 Questions / Aide</button>
+  </div>
+</nav>
+
+<!-- ============================================================
+     PAGE HOME
+============================================================ -->
+<div id="page-home">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-pill">🌱 Communauté bienveillante · Modérée 24h/24</div>
+    <h1>Tu n'es pas<br><em>seul(e).</em><br>On est là.</h1>
+    <p class="hero-sub">Un espace sûr pour partager, encourager, et témoigner. Ensemble contre le harcèlement et pour la vie.</p>
+    <div class="hero-cta">
+      <button class="btn btn-primary" onclick="requireAuth(() => showPage('write'))">✍️ Partager un message</button>
+      <button class="btn btn-ghost" onclick="scrollToFeed()">📖 Lire les témoignages</button>
+      <button class="btn btn-ghost" onclick="openDonate()">💛 Soutenir le projet</button>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <div class="stats-strip">
+    <div class="stat-box">
+      <span class="stat-num" id="stat-messages">—</span>
+      <div class="stat-label">Messages publiés</div>
+    </div>
+    <div class="stat-box">
+      <span class="stat-num" id="stat-comptes">—</span>
+      <div class="stat-label">Membres inscrits</div>
+    </div>
+    <div class="stat-box">
+      <span class="stat-num" id="stat-reactions">—</span>
+      <div class="stat-label">Réactions reçues</div>
+    </div>
+    <div class="stat-box">
+      <span class="stat-num" id="stat-bloques">—</span>
+      <div class="stat-label">Messages toxiques bloqués</div>
+    </div>
+  </div>
+
+  <!-- URGENCE -->
+  <div class="urgence">
+    <div class="urgence-inner">
+      <div class="urgence-icon">🆘</div>
+      <div class="urgence-text">
+        <strong>Tu traverses une crise ? Tu penses au pire ?</strong>
+        <p>Appelle le <a href="tel:3114"><strong>3114</strong></a> (numéro national de prévention du suicide — gratuit, 24h/24, 7j/7) · Ados : <a href="https://www.e-enfance.org" target="_blank">e-enfance.org</a> &amp; <a href="tel:3020">30 20</a> contre le harcèlement</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETUP NOTICE (visible tant que Supabase n'est pas configuré) -->
+  <div class="setup-notice" id="setup-notice">
+    <div class="setup-inner">
+      ⚙️ <div><strong>Configuration requise :</strong> Ce site utilise <a href="https://supabase.com" target="_blank">Supabase</a> pour stocker les messages. Ouvre <code>config.js</code> et renseigne ton <code>SUPABASE_URL</code> et <code>SUPABASE_ANON_KEY</code>. <a href="#" onclick="dismissSetup()">Masquer</a></div>
+    </div>
+  </div>
+
+  <!-- ADSENSE SLOT 1 (bannière horizontale) -->
+  <div class="ad-slot">
+    <div class="ad-slot-inner">
+      <span class="ad-label">Pub</span>
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+           data-ad-slot="1111111111"
+           data-ad-format="horizontal"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filters-bar" id="filters-bar">
+    <button class="filter-chip active" data-sort-type="recent" onclick="setSortChip('recent', this)">🕐 Récents</button>
+    <button class="filter-chip" data-sort-type="popular" onclick="setSortChip('popular', this)">🔥 Populaires</button>
+    <button class="filter-chip" data-sort-type="unanswered" onclick="setSortChip('unanswered', this)">💬 Sans réponse</button>
+  </div>
+
+  <!-- FEED -->
+  <div class="feed" id="feed">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- ADSENSE SLOT 2 (mid-feed) -->
+  <div class="ad-slot" id="ad-mid" style="display:none">
+    <div class="ad-slot-inner">
+      <span class="ad-label">Pub</span>
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+           data-ad-slot="2222222222"
+           data-ad-format="rectangle"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+  </div>
+
+</div><!-- end page-home -->
+
+<!-- ============================================================
+     PAGE WRITE
+============================================================ -->
+<div id="page-write" class="hidden">
+  <section id="page-write-inner">
+    <div class="write-header container">
+      <button class="btn btn-ghost btn-sm" onclick="showPage('home')" style="margin-bottom:20px">← Retour</button>
+      <h2>Partager un <em>message</em></h2>
+      <p>Ton message sera relu par notre système de modération avant d'être publié. Sois bienveillant(e) 💛</p>
+    </div>
+    <div class="container" style="max-width:720px">
+      <div class="write-card">
+        <div class="form-row form-group">
+          <div>
+            <label class="form-label">Type de message</label>
+            <select class="form-select" id="post-type">
+              <option value="encouragement">💛 Message d'encouragement</option>
+              <option value="temoignage">📖 Témoignage personnel</option>
+              <option value="question">💬 Question / Demande d'aide</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Visibilité du prénom</label>
+            <select class="form-select" id="post-anon">
+              <option value="false">Afficher mon prénom</option>
+              <option value="true">Poster anonymement</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Ton message <span style="color:var(--red)">*</span></label>
+          <textarea class="form-textarea" id="post-content" maxlength="1500"
+            placeholder="Écris ici... partage ce que tu ressens, un message d'espoir, ton histoire. Minimum 15 caractères." oninput="updateWriteChars()"></textarea>
+          <div class="char-bar">
+            <span class="char-count"><span id="write-chars">0</span>/1500</span>
+            <div class="char-bar-fill"><div class="char-bar-progress" id="char-progress" style="width:0%"></div></div>
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <div class="mod-notice">🛡️ Modération IA + signalement communautaire</div>
+          <button class="btn btn-primary" onclick="submitPost()">Publier →</button>
+        </div>
+      </div>
+
+      <!-- Moderation info card -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-top:20px">
+        <p style="font-size:0.82rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">🛡️ Comment fonctionne la modération ?</p>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <span style="font-size:1.1rem;flex-shrink:0">🤖</span>
+            <div><strong style="font-size:0.875rem;color:var(--text)">Filtrage automatique par IA</strong><br><span style="font-size:0.82rem;color:var(--text2);font-weight:300">Chaque message est analysé avant publication pour détecter insultes, harcèlement, et contenus dangereux.</span></div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <span style="font-size:1.1rem;flex-shrink:0">🚩</span>
+            <div><strong style="font-size:0.875rem;color:var(--text)">Signalement communautaire</strong><br><span style="font-size:0.82rem;color:var(--text2);font-weight:300">3 signalements = retrait automatique + examen du compte. Récidive = ban définitif.</span></div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <span style="font-size:1.1rem;flex-shrink:0">🔐</span>
+            <div><strong style="font-size:0.875rem;color:var(--text)">Compte obligatoire</strong><br><span style="font-size:0.82rem;color:var(--text2);font-weight:300">Impossible de poster sans compte. Les comptes bannis ne peuvent plus poster ni commenter.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ============================================================
+     PAGE PROFILE
+============================================================ -->
+<div id="page-profile" class="hidden">
+  <div id="page-profile-inner">
+    <div class="container" style="max-width:720px">
+      <button class="btn btn-ghost btn-sm" onclick="showPage('home')" style="margin-bottom:24px">← Retour</button>
+    </div>
+    <div class="profile-header container" style="max-width:720px" id="profile-header-content">
+      <!-- filled by JS -->
+    </div>
+    <div class="feed" id="profile-feed" style="max-width:720px">
+      <div class="spinner"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PAGE AUTH
+============================================================ -->
+<div id="page-auth" class="hidden">
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="wordmark">Reste<span>Ici</span></div>
+        <p>Rejoins la communauté bienveillante</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="auth-tab-login" onclick="switchAuthTab('login')">Connexion</button>
+        <button class="auth-tab" id="auth-tab-register" onclick="switchAuthTab('register')">Inscription</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div id="auth-login-form">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" type="email" id="login-email" placeholder="tonemail@exemple.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mot de passe</label>
+          <input class="form-input" type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter') loginUser()">
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="loginUser()">Se connecter →</button>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div id="auth-register-form" class="hidden">
+        <div class="form-group">
+          <label class="form-label">Prénom (affiché sur le site)</label>
+          <input class="form-input" type="text" id="reg-name" placeholder="Ton prénom" maxlength="30">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" type="email" id="reg-email" placeholder="tonemail@exemple.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mot de passe (min. 8 caractères)</label>
+          <input class="form-input" type="password" id="reg-password" placeholder="••••••••" onkeydown="if(event.key==='Enter') registerUser()">
+        </div>
+        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:16px;line-height:1.5">En t'inscrivant tu acceptes les règles de la communauté : bienveillance obligatoire, zéro harcèlement.</div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="registerUser()">Créer mon compte →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODALS
+============================================================ -->
+
+<!-- REPORT MODAL -->
+<div class="modal-overlay" id="report-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('report-modal')">×</button>
+    <h3>🚩 Signaler ce message</h3>
+    <p>Ce message te semble blessant, dangereux ou irrespectueux ? Signale-le. Au bout de 3 signalements, il sera retiré et le compte examiné.</p>
+    <div class="form-group">
+      <select class="form-select" id="report-reason">
+        <option>Harcèlement / intimidation</option>
+        <option>Contenu blessant ou irrespectueux</option>
+        <option>Incitation à l'automutilation ou au suicide</option>
+        <option>Spam ou contenu hors sujet</option>
+        <option>Usurpation d'identité</option>
+        <option>Autre raison</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('report-modal')">Annuler</button>
+      <button class="btn btn-danger" onclick="confirmReport()">Signaler</button>
+    </div>
+  </div>
+</div>
+
+<!-- BAN NOTICE -->
+<div class="modal-overlay" id="ban-modal">
+  <div class="modal">
+    <h3 style="color:var(--red)">🚫 Compte suspendu</h3>
+    <p>Ton compte a été suspendu suite à des violations répétées des règles de la communauté. Tu ne peux plus poster ni commenter.<br><br>Si tu penses que c'est une erreur, contacte-nous.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="logout(); closeModal('ban-modal')">Déconnexion</button>
+    </div>
+  </div>
+</div>
+
+<!-- DONATE MODAL -->
+<div class="modal-overlay" id="donate-modal" onclick="if(event.target===this) closeModal('donate-modal')">
+  <div class="modal" style="text-align:center">
+    <button class="modal-close" onclick="closeModal('donate-modal')">×</button>
+    <div style="font-size:2.8rem;margin-bottom:16px">💛</div>
+    <h3>Soutenir <span style="color:var(--accent);font-style:italic">ResteIci</span></h3>
+    <p>Ce site est gratuit, maintenu bénévolement. Ton soutien permet de garder les serveurs en ligne, d'améliorer la modération, et d'aider encore plus de personnes.</p>
+    <div class="donate-amounts">
+      <button class="amount-btn" onclick="selectAmount(2, this)">2€</button>
+      <button class="amount-btn active" onclick="selectAmount(5, this)">5€</button>
+      <button class="amount-btn" onclick="selectAmount(10, this)">10€</button>
+      <button class="amount-btn" onclick="selectAmount(20, this)">20€</button>
+      <button class="amount-btn" onclick="selectAmount(50, this)">50€</button>
+    </div>
+    <a href="https://www.paypal.com/donate?amount=5" id="paypal-donate-btn" target="_blank" class="paypal-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 0 0-.607-.541c-.013.076-.026.175-.041.254-.59 3.025-2.566 6.082-7.545 6.082H10.84l-1.169 7.397h2.48c.457 0 .846-.333.918-.783l.04-.19.72-4.558.046-.252c.072-.45.461-.783.918-.783h.578c3.741 0 6.671-1.52 7.527-5.918.357-1.833.172-3.362-.676-4.708z"/></svg>
+      Faire un don de <span id="donate-amount-label">5€</span> via PayPal
+    </a>
+    <p style="font-size:0.75rem;color:var(--text3);margin-top:14px;margin-bottom:0">Paiement 100% sécurisé via PayPal · Merci infiniment 🙏</p>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ============================================================
+     CONFIG (à remplir avant déploiement)
+============================================================ -->
+<script>
+// ═══════════════════════════════════════════════════════════════
+// ⚙️  CONFIGURATION — À modifier avant de déployer !
+// ═══════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://wvyyroydatrgbrofqwyp.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_HaVAyH8F0GfdgaZB8QTPRQ_-jXz_MY_';
+// Remplace aussi le ca-pub-XXXXXXXX dans les balises AdSense ci-dessus par ton ID éditeur AdSense
+// ═══════════════════════════════════════════════════════════════
+</script>
+
+<!-- Main JS -->
+<script src="app.js"></script>
+
+</body>
+</html>
