@@ -1387,19 +1387,21 @@ img { max-width: 100%; }
     document.getElementById('donate-amount-label').innerText = amount + '€';
     document.getElementById('paypal-donate-btn').href = link;
     selectedLink = link;
+
+    // Ouvre automatiquement le lien PayPal
+    window.open(link, '_blank');
   }
 
   function customAmount(btn) {
-    let montant = prompt("Entrez votre montant en € :");
-    if (montant && !isNaN(montant) && montant > 0) {
-      // Désactive tous les boutons
-      document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+    // Désactive tous les boutons
+    document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
 
-      // Met à jour le label et crée le lien PayPal personnalisé
-      document.getElementById('donate-amount-label').innerText = montant + '€';
-      document.getElementById('paypal-donate-btn').href = `https://www.paypal.com/donate?amount=${montant}`;
-    }
+    // Redirige vers PayPal avec un montant personnalisé (l'utilisateur choisira sur PayPal)
+    document.getElementById('donate-amount-label').innerText = 'perso';
+    document.getElementById('paypal-donate-btn').href = 'https://www.paypal.com/donate';
+    // Ouvre automatiquement le lien
+    window.open('https://www.paypal.com/donate', '_blank');
   }
 
   function closeModal(id) {
