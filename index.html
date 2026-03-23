@@ -1354,20 +1354,58 @@ img { max-width: 100%; }
     <div style="font-size:2.8rem;margin-bottom:16px">💛</div>
     <h3>Soutenir <span style="color:var(--accent);font-style:italic">ResteIci</span></h3>
     <p>Ce site est gratuit, maintenu bénévolement. Ton soutien permet de garder les serveurs en ligne, d'améliorer la modération, et d'aider encore plus de personnes.</p>
+
     <div class="donate-amounts">
-      <button class="amount-btn" onclick="selectAmount(2, this)">2€</button>
-      <button class="amount-btn active" onclick="selectAmount(5, this)">5€</button>
-      <button class="amount-btn" onclick="selectAmount(10, this)">10€</button>
-      <button class="amount-btn" onclick="selectAmount(20, this)">20€</button>
-      <button class="amount-btn" onclick="selectAmount(50, this)">50€</button>
+      <button class="amount-btn" onclick="selectAmount(2, this, 'https://www.paypal.com/ncp/payment/ZW42MTU56NUUW')">2€</button>
+      <button class="amount-btn active" onclick="selectAmount(5, this, 'https://www.paypal.com/ncp/payment/HH63UG4FAUG86')">5€</button>
+      <button class="amount-btn" onclick="selectAmount(10, this, 'https://www.paypal.com/ncp/payment/FPM73WJWW8WHY')">10€</button>
+      <button class="amount-btn" onclick="selectAmount(20, this, 'https://www.paypal.com/ncp/payment/RVKXCP7RGYX4L')">20€</button>
+      <button class="amount-btn" onclick="selectAmount(50, this, 'https://www.paypal.com/ncp/payment/9BB8DKDVNC3JS')">50€</button>
+      <button class="amount-btn" onclick="customAmount(this)">Montant perso</button>
     </div>
-    <a href="https://www.paypal.com/donate?amount=5" id="paypal-donate-btn" target="_blank" class="paypal-btn">
+
+    <a href="https://www.paypal.com/ncp/payment/SL2EQMJWD2G8G" id="paypal-donate-btn" target="_blank" class="paypal-btn">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 0 0-.607-.541c-.013.076-.026.175-.041.254-.59 3.025-2.566 6.082-7.545 6.082H10.84l-1.169 7.397h2.48c.457 0 .846-.333.918-.783l.04-.19.72-4.558.046-.252c.072-.45.461-.783.918-.783h.578c3.741 0 6.671-1.52 7.527-5.918.357-1.833.172-3.362-.676-4.708z"/></svg>
       Faire un don de <span id="donate-amount-label">5€</span> via PayPal
     </a>
-    <p style="font-size:0.75rem;color:var(--text3);margin-top:14px;margin-bottom:0">Paiement 100% sécurisé via PayPal · Merci infiniment 🙏</p>
+
+    <p style="font-size:0.75rem;color:var(--text3);margin-top:14px;margin-bottom:0">
+      Paiement 100% sécurisé via PayPal · Merci infiniment 🙏
+    </p>
   </div>
 </div>
+
+<script>
+  let selectedLink = "YOUR_PAYPAL_LINK_5"; // lien par défaut
+
+  function selectAmount(amount, btn, link) {
+    // Désactive tous les boutons
+    document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // Met à jour le label et le lien PayPal
+    document.getElementById('donate-amount-label').innerText = amount + '€';
+    document.getElementById('paypal-donate-btn').href = link;
+    selectedLink = link;
+  }
+
+  function customAmount(btn) {
+    let montant = prompt("Entrez votre montant en € :");
+    if (montant && !isNaN(montant) && montant > 0) {
+      // Désactive tous les boutons
+      document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Met à jour le label et crée le lien PayPal personnalisé
+      document.getElementById('donate-amount-label').innerText = montant + '€';
+      document.getElementById('paypal-donate-btn').href = `https://www.paypal.com/donate?amount=${montant}`;
+    }
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+</script>
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
