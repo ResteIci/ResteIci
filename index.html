@@ -1118,6 +1118,10 @@ img { max-width: 100%; }
     <div class="header-actions">
       <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Changer le thème">🌙</button>
 
+      <button class="btn btn-ghost btn-sm" onclick="window.location.href='about.html'" title="Notre mission">
+        ✨ Notre mission
+      </button>
+
       <button class="btn btn-primary btn-sm" onclick="showPage('write')" id="btn-write-header">
         ✍️ Écrire
       </button>
@@ -1164,6 +1168,7 @@ img { max-width: 100%; }
     <div class="hero-cta">
       <button class="btn btn-primary" onclick="requireAuth(() => showPage('write'))">✍️ Partager un message</button>
       <button class="btn btn-ghost" onclick="scrollToFeed()">📖 Lire les témoignages</button>
+      <button class="btn btn-ghost" onclick="window.location.href='about.html'">✨ Notre mission</button>
       <button class="btn btn-ghost" onclick="openDonate()">💛 Soutenir le projet</button>
     </div>
   </section>
