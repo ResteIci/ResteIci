@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — ResteIci</title>
+<meta name="description" content="Panel d'administration sécurisé pour ResteIci.">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- TOTP for 2FA -->
+<script src="https://cdn.jsdelivr.net/npm/otplib@12.0.1/dist/otplib.min.js"></script>
+
+<!-- Google reCAPTCHA -->
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+<!-- Styles -->
+<link rel="stylesheet" href="animations.css">
+
+<style>
+/* Minimal styles for admin page */
+body { font-family: 'Sora', sans-serif; background: #0b0d12; color: #eceaf5; margin: 0; padding: 20px; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { text-align: center; color: #f5a96b; }
+#admin-container { margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔐 Panel Admin — ResteIci</h1>
+  <div id="admin-container">
+    <!-- Admin content will be loaded here -->
+  </div>
+</div>
+
+<!-- Scripts -->
+<script>
+// Config Supabase (replace with your keys)
+const SUPABASE_URL = 'REMPLACE_PAR_TON_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'REMPLACE_PAR_TON_SUPABASE_ANON_KEY';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Grok API
+window.GROK_API_KEY = 'REMPLACE_PAR_TA_CLE_GROK';
+
+</script>
+<script src="app.js" defer></script>
+<script src="grok-integration.js" defer></script>
+<script src="user-levels.js" defer></script>
+<script src="realtime-notifications.js" defer></script>
+<script src="admin-panel.js" defer></script>
+<script src="i18n.js" defer></script>
+
+<script>
+// On load, check admin and render
+document.addEventListener('DOMContentLoaded', async () => {
+  if (sb && sb.auth) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      await initAdminPanel(session.user);
+    } else {
+      window.location.href = '/'; // Redirect to home if not logged in
+    }
+  }
+});
+
+async function initAdminPanel(user) {
+  const adminPanel = new AdminPanel(sb);
+  await adminPanel.checkAdminStatus(user.id);
+  adminPanel.renderAdminDashboard();
+}
+</script>
+</body>
+</html>

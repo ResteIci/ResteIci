@@ -1,8 +1,12 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
+const path = require('path');
 
 const app = express();
 app.use(express.json());
+
+// Serve static files
+app.use(express.static(path.join(__dirname)));
 
 const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
