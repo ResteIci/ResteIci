@@ -1,0 +1,109 @@
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATIONS AVANCÉES — ResteIci
+═══════════════════════════════════════════════════════════════ */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideInLeft { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+@keyframes float { 0%, 100% { transform: translateY(-4px); } 50% { transform: translateY(4px); } }
+@keyframes glow { 0%, 100% { box-shadow: 0 0 20px rgba(245,169,107,0.2); } 50% { box-shadow: 0 0 40px rgba(245,169,107,0.4); } }
+@keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+
+/* Fade-in cascade */
+.fade-in { animation: fadeInUp 0.5s ease-out; }
+.fade-in:nth-child(1) { animation-delay: 0s; }
+.fade-in:nth-child(2) { animation-delay: 0.04s; }
+.fade-in:nth-child(3) { animation-delay: 0.08s; }
+.fade-in:nth-child(4) { animation-delay: 0.12s; }
+.fade-in:nth-child(5) { animation-delay: 0.16s; }
+
+/* Micro-interactions */
+.btn, .action-btn, .filter-chip, .icon-btn {
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.btn:active { transform: scale(0.96); }
+.action-btn:active { transform: scale(0.92); }
+.reaction-btn:active { transform: scale(0.88); }
+
+/* Post card entrance */
+.post-card {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* Badge animations */
+.badge-mod {
+  animation: pulse 2s infinite;
+}
+
+/* Loader */
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid rgba(245,169,107,0.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Toast animations */
+.toast { animation: slideInRight 0.3s ease-out; }
+.toast.hide { animation: slideInRight 0.3s ease-out reverse; }
+
+/* Hero pill */
+.hero-pill {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* Scale animation on hover */
+.post-avatar:hover, .user-avatar-btn:hover {
+  animation: scaleIn 0.2s ease-out;
+}
+
+/* Smooth reactions */
+.reaction-btn {
+  transition: all 0.15s ease-out;
+}
+
+/* Modal entrance */
+.modal {
+  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Sidebar animations */
+.sidebar {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+/* Hover effects */
+.stat-box:hover {
+  animation: float 0.6s ease-in-out infinite;
+}
+
+/* Text appears effect */
+.text-appear {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE ANIMATIONS
+═══════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
