@@ -697,7 +697,9 @@ if (savedTheme) {
 // DONATE
 // ─────────────────────────────────────────
 let donateAmount = 5;
-function openDonate() { openModal('donate-modal'); }
+function openDonate() { 
+  window.open('https://www.paypal.com/ncp/payment/SL2EQMJWD2G8G', '_blank');
+}
 function selectAmount(amount, btn) {
   donateAmount = amount;
   document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
@@ -789,6 +791,18 @@ function formatTime(isoStr) {
 function formatDate(isoStr) {
   if (!isoStr) return '';
   return new Date(isoStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// ─────────────────────────────────────────
+// SIDEBAR
+// ─────────────────────────────────────────
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (sidebar && overlay) {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  }
 }
 
 // ─────────────────────────────────────────

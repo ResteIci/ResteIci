@@ -96,6 +96,29 @@
   animation: fadeIn 0.4s ease-out;
 }
 
+/* Additional animations */
+.glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+.bounce {
+  animation: bounce 1s infinite;
+}
+
+.float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    RESPONSIVE ANIMATIONS
 ═══════════════════════════════════════════════════════════════ */
