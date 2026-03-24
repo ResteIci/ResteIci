@@ -34,6 +34,18 @@ function initSupabase() {
     
     loadFeed();
     loadStats();
+
+    // Check for admin hash
+    if (window.location.hash === '#admin') {
+      // Wait for user session
+      setTimeout(() => {
+        if (currentUser) {
+          adminPanel.renderAdminDashboard();
+        } else {
+          requireAuth(() => adminPanel.renderAdminDashboard());
+        }
+      }, 500);
+    }
   } catch (e) {
     console.error('Erreur Supabase :', e);
     loadDemoData();
