@@ -241,6 +241,7 @@ function renderCard(p, idx) {
         ${repliesHtml}
         <div class="reply-form">
           <input class="reply-input" id="reply-input-${p.id}" placeholder="Répondre avec bienveillance..." maxlength="500">
+          <div class="g-recaptcha" data-sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI" data-size="compact"></div>
           <button class="btn btn-primary btn-sm" onclick="submitReply('${p.id}')">Envoyer</button>
         </div>
       </div>
