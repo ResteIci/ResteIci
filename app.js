@@ -25,7 +25,13 @@ function initSupabase() {
       return;
     }
     document.getElementById('setup-notice').style.display = 'none';
+    
+    // ─ Initialize all modules
     initAuth();
+    initUserLevels();
+    initRealtimeNotifications();
+    initAdminPanel();
+    
     loadFeed();
     loadStats();
   } catch (e) {
@@ -57,6 +63,11 @@ async function onLogin(user) {
   if (currentProfile?.banned) {
     openModal('ban-modal');
     return;
+  }
+
+  // Initialize user level
+  if (typeof userLevelSystem !== 'undefined' && userLevelSystem) {
+    await userLevelSystem.incrementPoints(user.id, 0); // Initialize
   }
 
   // Update UI
@@ -159,6 +170,16 @@ function renderFeed(posts) {
     return;
   }
   feed.innerHTML = posts.map((p, i) => renderCard(p, i)).join('');
+
+  // Ajouter analyse Grok à chaque post
+  posts.forEach(post => {
+    const cardEl = document.getElementById(`card-${post.id}`);
+    if (cardEl && typeof grokAnalyzer !== 'undefined') {
+      setTimeout(() => {
+        addAIAnalysisToPost(cardEl, post.content);
+      }, 100);
+    }
+  });
 
   // Affiche l'ad mid-feed après 5 messages
   if (posts.length >= 5) {
