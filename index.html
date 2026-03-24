@@ -995,6 +995,76 @@ img { max-width: 100%; }
 .setup-inner a { font-weight: 600; text-decoration: underline; }
 
 /* ============================================================
+   FOOTER
+============================================================ */
+#site-footer {
+  position: relative;
+  z-index: 1;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 32px 24px;
+}
+
+.footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.footer-brand {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.footer-brand span { color: var(--text); font-style: italic; }
+.footer-copy {
+  font-size: 0.75rem;
+  color: var(--text3);
+  font-weight: 400;
+  margin-top: 4px;
+}
+
+.footer-links {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  font-size: 0.82rem;
+  font-weight: 500;
+  font-family: var(--font-body);
+  text-decoration: none;
+  transition: all var(--transition);
+  cursor: pointer;
+}
+.footer-link:hover {
+  background: var(--surface3);
+  color: var(--text);
+  border-color: var(--border2);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 600px) {
+  .footer-inner { flex-direction: column; align-items: flex-start; gap: 20px; }
+  .footer-links { gap: 8px; }
+}
+
+/* ============================================================
    ANIMATIONS
 ============================================================ */
 @keyframes fadeUp {
@@ -1379,28 +1449,19 @@ img { max-width: 100%; }
   let selectedLink = "https://www.paypal.com/ncp/payment/HH63UG4FAUG86"; // lien pour 5€
 
   function selectAmount(amount, btn, link) {
-    // Désactive tous les boutons
     document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-
-    // Met à jour le label et le lien PayPal
     document.getElementById('donate-amount-label').innerText = amount + '€';
     document.getElementById('paypal-donate-btn').href = link;
     selectedLink = link;
-
-    // Ouvre automatiquement le lien PayPal
     window.open(link, '_blank');
   }
 
   function customAmount(btn) {
-    // Désactive tous les boutons
     document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-
-    // Redirige vers PayPal avec un montant personnalisé (l'utilisateur choisira sur PayPal)
     document.getElementById('donate-amount-label').innerText = 'perso';
     document.getElementById('paypal-donate-btn').href = 'https://www.paypal.com/donate';
-    // Ouvre automatiquement le lien
     window.open('https://www.paypal.com/donate', '_blank');
   }
 
@@ -1411,6 +1472,23 @@ img { max-width: 100%; }
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- ============================================================
+     FOOTER
+============================================================ -->
+<footer id="site-footer">
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">Reste<span>Ici</span></div>
+      <div class="footer-copy">© 2025 — Tous droits réservés</div>
+    </div>
+    <nav class="footer-links">
+      <a href="contact.html" class="footer-link">✉️ Contact</a>
+      <a href="mentions-legales.html" class="footer-link">📄 Mentions légales</a>
+      <a href="politique-confidentialite.html" class="footer-link">🔐 Politique de confidentialité</a>
+    </nav>
+  </div>
+</footer>
 
 <!-- ============================================================
      CONFIG (à remplir avant déploiement)
