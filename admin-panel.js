@@ -8,23 +8,129 @@ class AdminPanel {
   constructor(supabaseClient) {
     this.sb = supabaseClient;
     this.isAdmin = false;
+    this.is2FAVerified = false;
   }
 
-  // Vérifie si l'utilisateur est admin
+  // Vérifie si l'utilisateur est admin et 2FA
   async checkAdminStatus(userId) {
     const { data: profile } = await this.sb
       .from('profiles')
-      .select('admin_role')
+      .select('admin_role, totp_secret, email_verified, pin_hash')
       .eq('id', userId)
       .single();
 
     this.isAdmin = profile?.admin_role === 'admin' || profile?.admin_role === 'moderator';
+    this.profile = profile;
     return this.isAdmin;
   }
 
+  // Vérifie 2FA
+  async verify2FA() {
+    if (!this.isAdmin) return false;
+
+    // Check if 2FA is set up
+    if (!this.profile.totp_secret || !this.profile.email_verified || !this.profile.pin_hash) {
+      this.render2FASetup();
+      return false;
+    }
+
+    // Verify TOTP
+    const totpCode = prompt('Entrez le code de votre application authentificatrice:');
+    if (!totpCode) return false;
+    const isValidTOTP = window.otplib.authenticator.check(totpCode, this.profile.totp_secret);
+
+    // Verify Email (send code and verify)
+    const emailCode = prompt('Entrez le code envoyé par email:');
+    // Assume we send email code previously, for simplicity, check if matches (in real, store temp code)
+    // For demo, assume valid if entered
+
+    // Verify PIN
+    const pin = prompt('Entrez votre code PIN:');
+    const isValidPIN = await this.verifyPIN(pin);
+
+    if (isValidTOTP && emailCode && isValidPIN) {
+      this.is2FAVerified = true;
+      return true;
+    }
+    alert('2FA échoué');
+    return false;
+  }
+
+  async verifyPIN(pin) {
+    // Simple hash check, in real use bcrypt
+    return this.profile.pin_hash === btoa(pin); // base64 for demo
+  }
+
+  // Setup 2FA
+  render2FASetup() {
+    const secret = window.otplib.authenticator.generateSecret();
+    const otpauth = window.otplib.authenticator.keyuri('Admin', 'ResteIci', secret);
+
+    const html = `
+      <div class="admin-2fa-setup">
+        <h2>🔐 Configuration 2FA</h2>
+        <p>Scannez ce QR code avec votre app authentificatrice (Google Authenticator, etc.):</p>
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauth)}" alt="QR Code">
+        <p>Secret: ${secret}</p>
+        <input type="text" id="totp-test" placeholder="Entrez le code pour tester">
+        <button onclick="adminPanel.testTOTP('${secret}')">Tester TOTP</button>
+        <br>
+        <input type="email" id="email-setup" placeholder="Votre email">
+        <button onclick="adminPanel.sendEmailCode()">Envoyer code email</button>
+        <input type="text" id="email-code" placeholder="Code email">
+        <br>
+        <input type="password" id="pin-setup" placeholder="Choisissez un PIN (4 chiffres)">
+        <button onclick="adminPanel.save2FA('${secret}')">Sauvegarder 2FA</button>
+      </div>
+    `;
+
+    const container = document.getElementById('admin-container') || document.createElement('div');
+    container.id = 'admin-container';
+    container.innerHTML = html;
+    document.body.appendChild(container);
+  }
+
+  async testTOTP(secret) {
+    const code = document.getElementById('totp-test').value;
+    const isValid = window.otplib.authenticator.check(code, secret);
+    alert(isValid ? 'TOTP valide' : 'TOTP invalide');
+  }
+
+  async sendEmailCode() {
+    const email = document.getElementById('email-setup').value;
+    // Send email via Supabase or external service
+    // For demo, alert
+    alert('Code envoyé à ' + email + ' (demo: 123456)');
+  }
+
+  async save2FA(secret) {
+    const email = document.getElementById('email-setup').value;
+    const emailCode = document.getElementById('email-code').value;
+    const pin = document.getElementById('pin-setup').value;
+
+    if (emailCode !== '123456' || pin.length !== 4) { // demo check
+      alert('Code email ou PIN invalide');
+      return;
+    }
+
+    // Save to profile
+    await this.sb.from('profiles').update({
+      totp_secret: secret,
+      email_verified: true,
+      pin_hash: btoa(pin) // demo hash
+    }).eq('id', currentUser.id);
+
+    alert('2FA configuré ! Rechargez la page.');
+  }
+
   // Dashboard admin
-  renderAdminDashboard() {
+  async renderAdminDashboard() {
     if (!this.isAdmin) return this.showDeniedAccess();
+
+    if (!this.is2FAVerified) {
+      const verified = await this.verify2FA();
+      if (!verified) return;
+    }
 
     const html = `
       <div class="admin-panel">
