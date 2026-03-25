@@ -1,158 +1,199 @@
 // ═══════════════════════════════════════════════════════════════
-// Grok AI Integration — Post Analysis
+// Grok AI Integration — ResteIci
+// ✅ La clé API n'est JAMAIS exposée côté client.
+//    Elle vit dans une Supabase Edge Function sécurisée.
+//    Endpoint : /functions/v1/grok-analyze
 // ═══════════════════════════════════════════════════════════════
 
-const GROK_API_KEY = 'YOUR_GROK_KEY_HERE'; // Remplace par ta clé Grok (xAI)
-const GROK_API_ENDPOINT = 'https://api.x.ai/v1/chat/completions';
-
 class GrokAnalyzer {
-  constructor(apiKey = GROK_API_KEY) {
-    this.apiKey = apiKey;
-    this.endpoint = GROK_API_ENDPOINT;
-    this.cache = {};
+  constructor() {
+    this.cache = new Map();
+    // Endpoint = ta Supabase Edge Function (clé Grok en variable d'env serveur)
+    this.edgeFnUrl = SUPABASE_URL + '/functions/v1/grok-analyze';
   }
 
-  // Analyse sentiment et recommandations pour un post
+  // ── Analyse complète d'un post ────────────────────────────────
   async analyzePost(postContent) {
-    if (!this.apiKey || this.apiKey.includes('YOUR_GROK')) {
-      console.warn('Grok API key not configured');
-      return this.getFallbackAnalysis();
-    }
+    if (!postContent || postContent.length < 10) return this._fallback();
 
-    const cacheKey = this.hashString(postContent);
-    if (this.cache[cacheKey]) return this.cache[cacheKey];
+    const key = this._hash(postContent);
+    if (this.cache.has(key)) return this.cache.get(key);
 
     try {
-      const response = await fetch(this.endpoint, {
+      const res = await fetch(this.edgeFnUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
         },
-        body: JSON.stringify({
-          model: 'grok-3',
-          messages: [
-            {
-              role: 'system',
-              content: 'Tu es un psychologue bienveillant et expert en analyse de sentiments. Analyse ce message court (max 100 tokens) en JSON avec: sentiment (positive/neutral/negative), tone (supportif/triste/neutre), recommandation (1 ligne courte).'
-            },
-            {
-              role: 'user',
-              content: postContent
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 100
-        })
+        body: JSON.stringify({ content: postContent }),
       });
 
-      const data = await response.json();
-      const analysis = this.parseGrokResponse(data);
-      this.cache[cacheKey] = analysis;
-      return analysis;
+      if (!res.ok) throw new Error('Edge function error ' + res.status);
+
+      const result = await res.json();
+      this.cache.set(key, result);
+      return result;
     } catch (err) {
-      console.error('Grok API error:', err);
-      return this.getFallbackAnalysis();
+      // Silencieux — l'analyse AI est un bonus, pas critique
+      return this._fallback();
     }
   }
 
-  // Parse réponse Grok
-  parseGrokResponse(response) {
-    try {
-      const content = response.choices?.[0]?.message?.content || '{}';
-      const parsed = JSON.parse(content);
-      return {
-        sentiment: parsed.sentiment || 'neutral',
-        tone: parsed.tone || 'neutre',
-        recommendation: parsed.recommandation || 'Continue à partager !'
-      };
-    } catch {
-      return this.getFallbackAnalysis();
+  // ── Détection de risque côté client (pré-filtre rapide) ──────
+  // ⚠️ Ceci n'est qu'un garde-fou rapide. L'analyse fine est faite par Grok.
+  detectRiskLevel(content) {
+    if (!content) return 'low';
+    const c = content.toLowerCase();
+
+    // Phrases explicites à risque élevé (en français uniquement)
+    const HIGH_RISK = [
+      'je veux mourir', 'envie de mourir', 'je vais me suicider',
+      'je vais me tuer', 'mettre fin à ma vie', 'plus envie de vivre',
+      'je ne veux plus vivre', 'me donner la mort', 'je vais le faire',
+    ];
+
+    // Mots-clés intermédiaires — contexte nécessaire
+    const MED_RISK = [
+      'suicide', 'mourir', 'automutilation', 'me faire du mal',
+      'je disparais', 'tout arrêter', 'en finir',
+    ];
+
+    if (HIGH_RISK.some(p => c.includes(p))) return 'high';
+    if (MED_RISK.some(w => c.includes(w))) return 'medium';
+    return 'low';
+  }
+
+  _fallback() {
+    return { sentiment: 'neutral', tone: 'neutre', recommendation: '💛 Merci de partager' };
+  }
+
+  _hash(str) {
+    let h = 0;
+    for (let i = 0; i < Math.min(str.length, 200); i++) {
+      h = Math.imul(31, h) + str.charCodeAt(i) | 0;
     }
-  }
-
-  // Fallback si API indisponible
-  getFallbackAnalysis() {
-    return {
-      sentiment: 'neutral',
-      tone: 'neutre',
-      recommendation: '💛 Merci de partager'
-    };
-  }
-
-  // Genère un hash simple
-  hashString(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) - hash) + str.charCodeAt(i);
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    return 'hash-' + hash;
-  }
-
-  // Détecte si un post pourrait être à risque (mots-clés sensibles)
-  async detectRiskLevel(content) {
-    const riskKeywords = ['veux mourir', 'suicide', 'fin', 'cannot take'];
-    const hasRisk = riskKeywords.some(kw => content.toLowerCase().includes(kw));
-    return hasRisk ? 'high' : 'low';
+    return 'g' + h;
   }
 }
 
-// Instance globale
-const grokAnalyzer = new GrokAnalyzer();
-
-// Hook : Ajouter analyse AI aux posts
+// ── Ajoute une analyse AI discrète sous un post ──────────────
 async function addAIAnalysisToPost(postElement, postContent) {
-  if (!postElement) return;
+  if (!postElement || !postContent) return;
 
+  // Détection de risque instantanée (client-side)
+  const risk = grokAnalyzer.detectRiskLevel(postContent);
+
+  if (risk === 'high') {
+    const urgenceEl = document.createElement('div');
+    urgenceEl.className = 'ai-risk-banner';
+    urgenceEl.innerHTML = `
+      <span>🆘</span>
+      <span>Si tu traverses une crise, le <strong><a href="tel:3114">3114</a></strong> est là pour toi — gratuit, 24h/24.</span>
+    `;
+    postElement.querySelector('.post-content')?.insertAdjacentElement('afterend', urgenceEl);
+  }
+
+  // Analyse Grok asynchrone (non bloquante)
   try {
     const analysis = await grokAnalyzer.analyzePost(postContent);
-    const riskLevel = await grokAnalyzer.detectRiskLevel(postContent);
-
-    // Ajoute un badge d'analyse
-    const analysisEl = document.createElement('div');
-    analysisEl.className = `ai-analysis sentiment-${analysis.sentiment}`;
-    analysisEl.innerHTML = `
-      <span class="ai-label">🤖</span>
-      <span class="ai-tone">${analysis.tone}</span>
-      ${riskLevel === 'high' ? '<span class="ai-risk">⚠️ Ressources d\'urgence disponibles</span>' : ''}
-    `;
-
-    postElement.querySelector('.post-content')?.insertAdjacentElement('afterend', analysisEl);
-  } catch (err) {
-    console.error('AI analysis error:', err);
-  }
+    if (analysis.tone && analysis.tone !== 'neutre') {
+      const el = document.createElement('div');
+      el.className = `ai-tone-badge sentiment-${analysis.sentiment}`;
+      el.textContent = analysis.tone;
+      postElement.querySelector('.reactions')?.insertAdjacentElement('beforebegin', el);
+    }
+  } catch {}
 }
 
-// CSS pour AI analysis
+// ── CSS ────────────────────────────────────────────────────────
 const styleAI = document.createElement('style');
 styleAI.textContent = `
-.ai-analysis {
-  margin-top: 12px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: rgba(126,200,227,0.1);
-  border: 1px solid rgba(126,200,227,0.2);
-  font-size: 0.8rem;
+.ai-risk-banner {
+  margin: 10px 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(224,120,120,0.12);
+  border: 1px solid rgba(224,120,120,0.25);
+  font-size: 0.82rem;
+  color: var(--red);
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: var(--blue);
+  gap: 8px;
+  line-height: 1.5;
 }
+.ai-risk-banner a { color: var(--red); font-weight: 700; text-decoration: underline; }
 
-.ai-analysis.sentiment-positive {
-  background: rgba(114,201,138,0.1);
-  border-color: rgba(114,201,138,0.2);
-  color: var(--green);
+.ai-tone-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--surface2);
+  color: var(--text3);
+  margin-bottom: 8px;
 }
-
-.ai-analysis.sentiment-negative {
-  background: rgba(224,120,120,0.1);
-  border-color: rgba(224,120,120,0.2);
-  color: var(--red);
-}
-
-.ai-label { font-size: 1rem; }
-.ai-risk { background: rgba(224,120,120,0.3); padding: 2px 6px; border-radius: 6px; font-weight: 600; }
+.sentiment-positive .ai-tone-badge,
+.ai-tone-badge.sentiment-positive { background: rgba(114,201,138,0.15); color: var(--green); }
+.ai-tone-badge.sentiment-negative { background: rgba(224,120,120,0.12); color: var(--red); }
 `;
 document.head.appendChild(styleAI);
+
+// ── Edge Function à créer dans Supabase ──────────────────────
+/*
+  Fichier : supabase/functions/grok-analyze/index.ts
+  ────────────────────────────────────────────────────
+  import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+  serve(async (req) => {
+    const { content } = await req.json();
+
+    const res = await fetch("https://api.x.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${Deno.env.get("GROK_API_KEY")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "grok-3",
+        max_tokens: 80,
+        temperature: 0.3,
+        messages: [
+          {
+            role: "system",
+            content: `Tu es un psychologue bienveillant spécialisé en santé mentale.
+Analyse le message suivant en JSON strict (sans markdown, sans backticks).
+Réponds UNIQUEMENT avec ce JSON :
+{
+  "sentiment": "positive" | "neutral" | "negative",
+  "tone": "mot unique décrivant le ton en français (ex: espoir, détresse, soutien, neutre, tristesse, courage)",
+  "recommendation": "conseil court et bienveillant (max 10 mots)"
+}
+Ne jamais mettre de backticks. Répondre uniquement avec le JSON.`
+          },
+          { role: "user", content: content.slice(0, 500) }
+        ]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || "{}";
+    
+    try {
+      const parsed = JSON.parse(text);
+      return new Response(JSON.stringify(parsed), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      });
+    } catch {
+      return new Response(JSON.stringify({ sentiment: "neutral", tone: "neutre", recommendation: "Merci de partager" }), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      });
+    }
+  });
+
+  Variable d'environnement à configurer dans Supabase Dashboard :
+  → GROK_API_KEY = ta_clé_xai_ici
+*/
+
+const grokAnalyzer = new GrokAnalyzer();

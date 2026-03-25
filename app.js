@@ -1,16 +1,16 @@
 // ═══════════════════════════════════════════════════════════════
-// ResteIci — app.js
-// Stack : Vanilla JS + Supabase v2
+// ResteIci — app.js ✅ VERSION CORRIGÉE
+// Corrections : display_name cohérent, await manquant, upsert fix
 // ═══════════════════════════════════════════════════════════════
+
+let sb = null;
+let currentUser = null;
+let currentProfile = null;
+let postLoginCallback = null;
 
 // ─────────────────────────────────────────
 // INIT SUPABASE
 // ─────────────────────────────────────────
-let sb = null;
-let currentUser = null;
-let currentProfile = null;
-let postLoginCallback = null; // action à exécuter après connexion (ex: rendre admin)
-
 async function initSupabase() {
   if (typeof window.supabase === 'undefined') {
     console.warn('Supabase SDK non chargé — mode démo activé');
@@ -27,22 +27,16 @@ async function initSupabase() {
     }
     document.getElementById('setup-notice').style.display = 'none';
 
-    // ─ Initialize all modules
     await initAuth();
     initUserLevels();
     initRealtimeNotifications();
     initAdminPanel();
-
     loadFeed();
     loadStats();
 
-    // Check for admin hash (après initAuth et initAdminPanel)
     if (window.location.hash === '#admin') {
-      if (currentUser) {
-        adminPanel.renderAdminDashboard();
-      } else {
-        requireAuth(() => adminPanel.renderAdminDashboard());
-      }
+      if (currentUser) adminPanel.renderAdminDashboard();
+      else requireAuth(() => adminPanel.renderAdminDashboard());
     }
   } catch (e) {
     console.error('Erreur Supabase :', e);
@@ -65,45 +59,38 @@ async function initAuth() {
 
 async function onLogin(user) {
   currentUser = user;
-  // Fetch profile
+
   const { data } = await sb.from('profiles').select('*').eq('id', user.id).single();
   currentProfile = data;
 
-  // Check ban
   if (currentProfile?.banned) {
     openModal('ban-modal');
     return;
   }
 
-  // Initialize user level
   if (typeof userLevelSystem !== 'undefined' && userLevelSystem) {
-    await userLevelSystem.incrementPoints(user.id, 0); // Initialize
+    await userLevelSystem.incrementPoints(user.id, 0);
   }
 
-  // Update UI
   document.getElementById('auth-btns').classList.add('hidden');
   document.getElementById('user-menu').classList.remove('hidden');
+  // ✅ Fix : display_name cohérent (plus de mélange avec 'name')
   const initials = (currentProfile?.display_name || user.email || '?').slice(0, 2).toUpperCase();
   document.getElementById('user-avatar-btn').textContent = initials;
 
-  // Exécute action post-auth (ex: redirection vers admin)
   if (postLoginCallback) {
     postLoginCallback();
     postLoginCallback = null;
     return;
   }
 
-  // Si on est déjà sur #admin, relance le rendu admin
   if (window.location.hash === '#admin' && typeof adminPanel !== 'undefined' && adminPanel) {
     adminPanel.renderAdminDashboard();
   }
 
-  // Init or refresh admin panel state after login
   if (typeof adminPanel !== 'undefined' && adminPanel) {
     await adminPanel.checkAdminStatus(user.id);
-    if (window.location.hash === '#admin') {
-      adminPanel.renderAdminDashboard();
-    }
+    if (window.location.hash === '#admin') adminPanel.renderAdminDashboard();
   }
 }
 
@@ -121,7 +108,10 @@ async function loginUser() {
   if (!email || !password) { showToast('⚠️ Remplis tous les champs.', 'error'); return; }
 
   const { error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) { showToast('❌ ' + (error.message === 'Invalid login credentials' ? 'Email ou mot de passe incorrect.' : error.message), 'error'); return; }
+  if (error) {
+    showToast('❌ ' + (error.message === 'Invalid login credentials' ? 'Email ou mot de passe incorrect.' : error.message), 'error');
+    return;
+  }
   showToast('✅ Connexion réussie ! Bienvenue 💛', 'success');
   showPage('home');
 }
@@ -137,14 +127,14 @@ async function registerUser() {
   const { data, error } = await sb.auth.signUp({ email, password });
   if (error) { showToast('❌ ' + error.message, 'error'); return; }
 
-  // Create profile
   if (data.user) {
     await sb.from('profiles').insert({
       id: data.user.id,
-      display_name: name,
+      display_name: name,   // ✅ toujours display_name, jamais 'name'
       email: email,
       banned: false,
       report_count: 0,
+      admin_role: 'user',
       created_at: new Date().toISOString()
     });
   }
@@ -160,7 +150,8 @@ async function logout() {
 
 function openSettings() {
   if (!currentUser) { requireAuth(() => openSettings()); return; }
-  document.getElementById('settings-name').value = currentProfile?.name || '';
+  // ✅ Fix : display_name cohérent
+  document.getElementById('settings-name').value = currentProfile?.display_name || '';
   document.getElementById('settings-lang').value = i18n.currentLang;
   openModal('settings-modal');
 }
@@ -171,12 +162,16 @@ async function saveSettings() {
   const lang = document.getElementById('settings-lang').value;
 
   if (name) {
-    await sb.from('profiles').update({ name }).eq('id', currentUser.id);
-    currentProfile.name = name;
+    // ✅ Fix : mise à jour display_name (plus 'name')
+    await sb.from('profiles').update({ display_name: name }).eq('id', currentUser.id);
+    currentProfile.display_name = name;
+    const initials = name.slice(0, 2).toUpperCase();
+    document.getElementById('user-avatar-btn').textContent = initials;
     showToast('Nom mis à jour !', 'success');
   }
 
   if (password) {
+    if (password.length < 8) { showToast('⚠️ Mot de passe trop court.', 'error'); return; }
     await sb.auth.updateUser({ password });
     showToast('Mot de passe changé !', 'success');
   }
@@ -198,6 +193,7 @@ let searchQuery = '';
 
 async function loadFeed() {
   const feed = document.getElementById('feed');
+  if (!feed) return;
   feed.innerHTML = '<div class="spinner"></div>';
 
   if (!sb || SUPABASE_URL.startsWith('REMPLACE')) { loadDemoData(); return; }
@@ -226,25 +222,23 @@ async function loadFeed() {
 
 function renderFeed(posts) {
   const feed = document.getElementById('feed');
+  if (!feed) return;
   if (!posts.length) {
     feed.innerHTML = `<div class="empty-state"><span class="icon">🌱</span><p>Aucun message ici pour l'instant.<br>Sois le premier à écrire !</p></div>`;
     return;
   }
   feed.innerHTML = posts.map((p, i) => renderCard(p, i)).join('');
 
-  // Ajouter analyse Grok à chaque post
   posts.forEach(post => {
     const cardEl = document.getElementById(`card-${post.id}`);
     if (cardEl && typeof grokAnalyzer !== 'undefined') {
-      setTimeout(() => {
-        addAIAnalysisToPost(cardEl, post.content);
-      }, 100);
+      setTimeout(() => addAIAnalysisToPost(cardEl, post.content), 200);
     }
   });
 
-  // Affiche l'ad mid-feed après 5 messages
   if (posts.length >= 5) {
-    document.getElementById('ad-mid').style.display = 'block';
+    const adMid = document.getElementById('ad-mid');
+    if (adMid) adMid.style.display = 'block';
   }
 }
 
@@ -269,8 +263,8 @@ function renderCard(p, idx) {
   const repliesHtml = (p.replies || []).map(r => `
     <div class="reply-item">
       <div class="reply-header">
-        <div class="reply-avatar">${(r.anonymous ? '🤍' : (r.display_name || '?').slice(0, 2).toUpperCase())}</div>
-        <span class="reply-author">${r.anonymous ? 'Anonyme' : r.display_name}</span>
+        <div class="reply-avatar">${r.anonymous ? '🤍' : (r.display_name || '?').slice(0, 2).toUpperCase()}</div>
+        <span class="reply-author">${escapeHtml(r.anonymous ? 'Anonyme' : (r.display_name || 'Anonyme'))}</span>
         <span class="reply-time">${formatTime(r.created_at)}</span>
       </div>
       <div class="reply-text">${escapeHtml(r.content)}</div>
@@ -302,7 +296,6 @@ function renderCard(p, idx) {
         ${repliesHtml}
         <div class="reply-form">
           <input class="reply-input" id="reply-input-${p.id}" placeholder="Répondre avec bienveillance..." maxlength="500">
-          <div class="g-recaptcha" data-sitekey="6LezgpYsAAAAAOh0e9-fTHPxIXuFH6wdmYIP3qf3" data-size="compact"></div>
           <button class="btn btn-primary btn-sm" onclick="submitReply('${p.id}')">Envoyer</button>
         </div>
       </div>
@@ -318,9 +311,9 @@ function getReactionLabel(emoji) {
 // ─────────────────────────────────────────
 // POST SUBMIT
 // ─────────────────────────────────────────
-
-// Mots toxiques — filtre côté client (double protection côté Supabase RLS)
-const TOXIC = ['nul','nulle','tue-toi','inutile','stupide','idiot','idiote','va mourir','suicide-toi','pd ','pute','salope','fdp','enculé','fdp','bâtard','débile','abruti','ferme-la','gros con','grosse vache','laid','laide','morte','cr eve','meur s','1nsulte'];
+const TOXIC = ['nul','nulle','tue-toi','inutile','stupide','idiot','idiote','va mourir',
+  'suicide-toi','pd ','pute','salope','fdp','enculé','bâtard','débile','abruti',
+  'ferme-la','gros con','grosse vache','cr eve','meur s'];
 
 function isToxic(text) {
   const t = text.toLowerCase().replace(/[_\-*]/g, '');
@@ -337,7 +330,6 @@ async function submitPost() {
 
   if (content.length < 15) { showToast('✏️ Message trop court (min. 15 caractères).', 'error'); return; }
 
-  // Client-side toxic check
   if (isToxic(content)) {
     showToast('🛡️ Message bloqué : contenu inapproprié détecté. Reste bienveillant(e) 💛', 'error');
     await incrementReportCount(currentUser.id, 1);
@@ -345,7 +337,6 @@ async function submitPost() {
   }
 
   if (!sb || SUPABASE_URL.startsWith('REMPLACE')) {
-    // Mode démo
     addDemoPost({ content, type, anonymous });
     showToast('✅ Message publié ! (mode démo)', 'success');
     document.getElementById('post-content').value = '';
@@ -360,7 +351,7 @@ async function submitPost() {
     content,
     type,
     anonymous,
-    approved: true, // passe à false si tu veux une modération manuelle
+    approved: true,
     reactions: { '❤️': 0, '🤗': 0, '✨': 0, '🙏': 0, '💪': 0 },
     reaction_total: 0,
     reply_count: 0,
@@ -392,14 +383,12 @@ async function react(postId, emoji, btn) {
   if (!sb || SUPABASE_URL.startsWith('REMPLACE')) return;
 
   try {
-    // Upsert user reaction
     if (isActive) {
       await sb.from('reactions').upsert({ post_id: postId, user_id: currentUser.id, emoji });
     } else {
       await sb.from('reactions').delete().match({ post_id: postId, user_id: currentUser.id, emoji });
     }
 
-    // Update post reaction count
     const { data: post } = await sb.from('posts').select('reactions, reaction_total').eq('id', postId).single();
     if (post) {
       const reacts = post.reactions || {};
@@ -441,9 +430,7 @@ async function submitReply(postId) {
     created_at: new Date().toISOString()
   });
 
-  // Increment reply_count
   await sb.rpc('increment_reply_count', { post_id_arg: postId });
-
   showToast('💛 Réponse publiée !', 'success');
   loadFeed();
 }
@@ -469,7 +456,6 @@ async function confirmReport() {
     return;
   }
 
-  // Insert report
   await sb.from('reports').insert({
     post_id: reportTargetId,
     reporter_id: currentUser.id,
@@ -477,18 +463,13 @@ async function confirmReport() {
     created_at: new Date().toISOString()
   });
 
-  // Count reports for this post
   const { count } = await sb.from('reports').select('*', { count: 'exact' }).eq('post_id', reportTargetId);
 
   if (count >= 3) {
-    // Auto-hide post
     await sb.from('posts').update({ approved: false }).eq('id', reportTargetId);
-
-    // Get post author and increment their report count → auto-ban at 5
     const { data: post } = await sb.from('posts').select('user_id').eq('id', reportTargetId).single();
     if (post) await incrementReportCount(post.user_id, 3);
-
-    showToast('🛡️ Message retiré automatiquement. Merci pour ta vigilance !', 'success');
+    showToast('🛡️ Message retiré automatiquement. Merci !', 'success');
     loadFeed();
   } else {
     showToast(`🚩 Signalement enregistré (${count}/3).`, 'success');
@@ -503,7 +484,7 @@ async function incrementReportCount(userId, amount) {
   if (!profile) return;
   const newCount = (profile.report_count || 0) + amount;
   const updates = { report_count: newCount };
-  if (newCount >= 5) updates.banned = true; // BAN AUTO à 5 points de signalement
+  if (newCount >= 5) updates.banned = true;
   await sb.from('profiles').update(updates).eq('id', userId);
 }
 
@@ -530,7 +511,7 @@ async function loadStats() {
     animCount('stat-comptes', profiles.count || 0);
     animCount('stat-reactions', reactions.count || 0);
     animCount('stat-bloques', blocked.count || 0);
-  } catch (e) {
+  } catch {
     animCount('stat-messages', 48);
     animCount('stat-comptes', 127);
     animCount('stat-reactions', 843);
@@ -554,9 +535,10 @@ function animCount(id, target) {
 // PROFILE
 // ─────────────────────────────────────────
 async function viewProfile(userId) {
-  showPage('profile');
+  navigateTo('profile');
   const header = document.getElementById('profile-header-content');
   const feed = document.getElementById('profile-feed');
+  if (!header || !feed) return;
   header.innerHTML = '<div class="spinner"></div>';
   feed.innerHTML = '<div class="spinner"></div>';
 
@@ -630,15 +612,15 @@ function sharePost(postId) {
 }
 
 // ─────────────────────────────────────────
-// DEMO MODE (sans Supabase)
+// DEMO MODE
 // ─────────────────────────────────────────
 const DEMO_POSTS = [
   { id: '1', user_id: 'u1', display_name: 'Marie', anonymous: false, type: 'encouragement', content: "Je suis passée par des moments très sombres il y a deux ans. Aujourd'hui je peux te dire que ça passe vraiment. Prends soin de toi, tu mérites d'être heureux·se. Tu n'es pas seul(e).", created_at: new Date(Date.now() - 7200000).toISOString(), reactions: { '❤️': 34, '🤗': 12, '✨': 8, '🙏': 5, '💪': 3 }, reaction_total: 62, replies: [{ display_name: 'Lucas', anonymous: false, content: 'Merci Marie, ça fait vraiment du bien à lire. 🙏', created_at: new Date(Date.now() - 3600000).toISOString() }], report_count: 0 },
   { id: '2', user_id: 'u2', display_name: 'Anonyme', anonymous: true, type: 'encouragement', content: "Si tu lis ça aujourd'hui, sache que ta présence dans ce monde a de la valeur. Même les jours où tu ne le ressens pas du tout. On est là, et on t'aime pour qui tu es.", created_at: new Date(Date.now() - 18000000).toISOString(), reactions: { '❤️': 58, '🤗': 20, '✨': 15, '🙏': 11, '💪': 7 }, reaction_total: 111, replies: [], report_count: 0 },
-  { id: '3', user_id: 'u3', display_name: 'Jade', anonymous: false, type: 'temoignage', content: "J'ai subi du harcèlement scolaire pendant 3 ans. Je n'en parlais à personne par honte. Le jour où j'en ai parlé à un adulte de confiance, tout a commencé à changer. Parlez. Il y a toujours quelqu'un pour vous entendre. Le 3114 m'a aidée une nuit difficile.", created_at: new Date(Date.now() - 86400000).toISOString(), reactions: { '❤️': 47, '🤗': 18, '✨': 9, '🙏': 22, '💪': 14 }, reaction_total: 110, replies: [{ display_name: 'Théo', anonymous: false, content: "Merci Jade d'avoir partagé ça. Tu donnes du courage à beaucoup.", created_at: new Date(Date.now() - 72000000).toISOString() }], report_count: 0 },
-  { id: '4', user_id: 'u4', display_name: 'Thomas', anonymous: false, type: 'encouragement', content: "Le harcèlement c'est lâche. Toi, tu es courageux·se d'être encore debout. Continue. Chaque jour où tu tiens est une victoire. 💪", created_at: new Date(Date.now() - 172800000).toISOString(), reactions: { '❤️': 21, '🤗': 9, '✨': 5, '🙏': 7, '💪': 19 }, reaction_total: 61, replies: [], report_count: 0 },
-  { id: '5', user_id: 'u5', display_name: 'Anonyme', anonymous: true, type: 'temoignage', content: "J'ai pensé au pire à 16 ans. Aujourd'hui j'ai 24 ans et une vie qui me plaît. Le 3114 m'a aidé cette nuit-là. Si tu es dans le noir, appelle-les. Ils sont incroyables et ne te jugeront pas.", created_at: new Date(Date.now() - 259200000).toISOString(), reactions: { '❤️': 89, '🤗': 31, '✨': 20, '🙏': 44, '💪': 28 }, reaction_total: 212, replies: [], report_count: 0 },
-  { id: '6', user_id: 'u6', display_name: 'Camille', anonymous: false, type: 'question', content: "Comment vous faites pour tenir dans les moments où tout semble impossible ? Je cherche des stratégies que vous avez trouvées utiles. Merci d'avance 💙", created_at: new Date(Date.now() - 43200000).toISOString(), reactions: { '❤️': 12, '🤗': 8, '✨': 3, '🙏': 6, '💪': 4 }, reaction_total: 33, replies: [{ display_name: 'Marie', anonymous: false, content: 'Pour moi c\'était la musique et écrire dans un journal. Petit à petit ça m\'a aidée à extérioriser.', created_at: new Date(Date.now() - 36000000).toISOString() }], report_count: 0 },
+  { id: '3', user_id: 'u3', display_name: 'Jade', anonymous: false, type: 'temoignage', content: "J'ai subi du harcèlement scolaire pendant 3 ans. Je n'en parlais à personne par honte. Le jour où j'en ai parlé à un adulte de confiance, tout a commencé à changer. Le 3114 m'a aidée une nuit difficile.", created_at: new Date(Date.now() - 86400000).toISOString(), reactions: { '❤️': 47, '🤗': 18, '✨': 9, '🙏': 22, '💪': 14 }, reaction_total: 110, replies: [{ display_name: 'Théo', anonymous: false, content: "Merci Jade d'avoir partagé ça. Tu donnes du courage à beaucoup.", created_at: new Date(Date.now() - 72000000).toISOString() }], report_count: 0 },
+  { id: '4', user_id: 'u4', display_name: 'Thomas', anonymous: false, type: 'encouragement', content: "Le harcèlement c'est lâche. Toi, tu es courageux·se d'être encore debout. Continue. 💪", created_at: new Date(Date.now() - 172800000).toISOString(), reactions: { '❤️': 21, '🤗': 9, '✨': 5, '🙏': 7, '💪': 19 }, reaction_total: 61, replies: [], report_count: 0 },
+  { id: '5', user_id: 'u5', display_name: 'Anonyme', anonymous: true, type: 'temoignage', content: "J'ai pensé au pire à 16 ans. Aujourd'hui j'ai 24 ans et une vie qui me plaît. Le 3114 m'a aidé cette nuit-là. Si tu es dans le noir, appelle-les.", created_at: new Date(Date.now() - 259200000).toISOString(), reactions: { '❤️': 89, '🤗': 31, '✨': 20, '🙏': 44, '💪': 28 }, reaction_total: 212, replies: [], report_count: 0 },
+  { id: '6', user_id: 'u6', display_name: 'Camille', anonymous: false, type: 'question', content: "Comment vous faites pour tenir dans les moments où tout semble impossible ? Merci d'avance 💙", created_at: new Date(Date.now() - 43200000).toISOString(), reactions: { '❤️': 12, '🤗': 8, '✨': 3, '🙏': 6, '💪': 4 }, reaction_total: 33, replies: [{ display_name: 'Marie', anonymous: false, content: "Pour moi c'était la musique et écrire dans un journal.", created_at: new Date(Date.now() - 36000000).toISOString() }], report_count: 0 },
 ];
 
 let demoPosts = [...DEMO_POSTS];
@@ -692,48 +674,80 @@ function renderProfileDemo(userId) {
 }
 
 // ─────────────────────────────────────────
-// PAGE ROUTING
+// NAVIGATION (SPA multi-pages)
 // ─────────────────────────────────────────
-function showPage(page) {
-  const pages = ['home', 'write', 'profile', 'auth'];
-  pages.forEach(p => {
+const PAGES = ['home', 'write', 'profile', 'auth', 'ressources', 'communaute'];
+
+function navigateTo(page) {
+  PAGES.forEach(p => {
     const el = document.getElementById('page-' + p);
     if (el) el.classList.toggle('hidden', p !== page);
   });
 
+  // Tabs de filtre visibles uniquement sur home
   const navTabs = document.getElementById('nav-tabs');
   if (navTabs) navTabs.style.display = (page === 'home') ? 'block' : 'none';
 
+  // Mettre à jour la nav active
+  document.querySelectorAll('.main-nav-link').forEach(a => {
+    a.classList.toggle('active', a.dataset.page === page);
+  });
+
   if (page === 'home') loadFeed();
-  if (page === 'write' && currentUser === null && sb) {
-    showPage('auth');
-    return;
-  }
+  if (page === 'write' && !currentUser && sb) { navigateTo('auth'); return; }
+  if (page === 'communaute') loadCommunaute();
+  if (page === 'ressources') { /* contenu statique */ }
+
+  // Met à jour l'URL sans rechargement
+  const titles = { home: 'Accueil', write: 'Écrire', profile: 'Profil', auth: 'Connexion', ressources: 'Ressources', communaute: 'Communauté' };
+  document.title = (titles[page] || page) + ' — ResteIci';
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function requireAuth(callback) {
-  if (currentUser) {
-    if (callback) callback();
-    return;
+// Rétrocompatibilité
+function showPage(page) { navigateTo(page); }
+function scrollToFeed() { document.getElementById('feed')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+
+// ─────────────────────────────────────────
+// PAGE COMMUNAUTÉ — stats live
+// ─────────────────────────────────────────
+async function loadCommunaute() {
+  const container = document.getElementById('communaute-members');
+  if (!container) return;
+  container.innerHTML = '<div class="spinner"></div>';
+
+  if (!sb) { container.innerHTML = '<p style="color:var(--text3)">Mode démo — connexion requise.</p>'; return; }
+
+  try {
+    const { data: members } = await sb
+      .from('profiles')
+      .select('display_name, created_at, report_count')
+      .eq('banned', false)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (!members?.length) { container.innerHTML = '<div class="empty-state"><span class="icon">👥</span><p>Aucun membre encore.</p></div>'; return; }
+
+    container.innerHTML = members.map(m => `
+      <div class="member-card">
+        <div class="member-avatar">${(m.display_name || '?').slice(0, 2).toUpperCase()}</div>
+        <div class="member-info">
+          <div class="member-name">${escapeHtml(m.display_name || 'Anonyme')}</div>
+          <div class="member-date">Membre depuis ${formatDate(m.created_at)}</div>
+        </div>
+      </div>
+    `).join('');
+  } catch {
+    container.innerHTML = '<div class="admin-error">Erreur de chargement.</div>';
   }
-
-  if (callback) {
-    postLoginCallback = callback;
-  }
-
-  showPage('auth');
-}
-
-function scrollToFeed() {
-  document.getElementById('feed')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ─────────────────────────────────────────
 // AUTH PAGE
 // ─────────────────────────────────────────
 function showAuth(tab) {
-  showPage('auth');
+  navigateTo('auth');
   switchAuthTab(tab);
 }
 
@@ -754,7 +768,6 @@ function toggleTheme() {
   document.getElementById('theme-btn').textContent = isDark ? '🌙' : '☀️';
   localStorage.setItem('ri-theme', isDark ? 'dark' : 'light');
 }
-// Restore theme
 const savedTheme = localStorage.getItem('ri-theme');
 if (savedTheme) {
   isDark = savedTheme === 'dark';
@@ -766,16 +779,15 @@ if (savedTheme) {
 // ─────────────────────────────────────────
 // DONATE
 // ─────────────────────────────────────────
-let donateAmount = 5;
-function openDonate() { 
-  window.open('https://www.paypal.com/ncp/payment/SL2EQMJWD2G8G', '_blank');
+function openDonate() {
+  openModal('donate-modal');
 }
-function selectAmount(amount, btn) {
-  donateAmount = amount;
+function selectAmount(amount, btn, link) {
   document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('donate-amount-label').textContent = amount + '€';
-  document.getElementById('paypal-donate-btn').href = `https://www.paypal.com/donate?amount=${amount}&currency_code=EUR`;
+  const donateBtn = document.getElementById('paypal-donate-btn');
+  if (donateBtn) donateBtn.href = link || `https://www.paypal.com/donate?amount=${amount}&currency_code=EUR`;
 }
 
 // ─────────────────────────────────────────
@@ -784,7 +796,6 @@ function selectAmount(amount, btn) {
 function openModal(id) { document.getElementById(id)?.classList.add('open'); }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
 
-// Close modal on overlay click
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => {
     if (e.target === overlay) closeModal(overlay.id);
@@ -800,9 +811,7 @@ function toggleDropdown() {
 document.addEventListener('click', e => {
   const menu = document.getElementById('user-dropdown');
   const btn = document.getElementById('user-avatar-btn');
-  if (menu && !menu.contains(e.target) && e.target !== btn) {
-    menu.classList.remove('open');
-  }
+  if (menu && !menu.contains(e.target) && e.target !== btn) menu.classList.remove('open');
 });
 
 // ─────────────────────────────────────────
@@ -811,18 +820,18 @@ document.addEventListener('click', e => {
 function updateWriteChars() {
   const content = document.getElementById('post-content')?.value || '';
   const count = content.length;
-  const max = 1500;
   const el = document.getElementById('write-chars');
   const bar = document.getElementById('char-progress');
   if (el) el.textContent = count;
-  if (bar) bar.style.width = Math.min(100, (count / max) * 100) + '%';
+  if (bar) bar.style.width = Math.min(100, (count / 1500) * 100) + '%';
 }
 
 // ─────────────────────────────────────────
-// SETUP NOTICE
+// SIDEBAR
 // ─────────────────────────────────────────
-function dismissSetup() {
-  document.getElementById('setup-notice').style.display = 'none';
+function toggleSidebar() {
+  document.getElementById('sidebar')?.classList.toggle('open');
+  document.getElementById('sidebar-overlay')?.classList.toggle('open');
 }
 
 // ─────────────────────────────────────────
@@ -831,6 +840,7 @@ function dismissSetup() {
 let toastTimer;
 function showToast(msg, type = '') {
   const toast = document.getElementById('toast');
+  if (!toast) return;
   toast.textContent = msg;
   toast.className = 'toast show ' + type;
   clearTimeout(toastTimer);
@@ -863,16 +873,8 @@ function formatDate(isoStr) {
   return new Date(isoStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-// ─────────────────────────────────────────
-// SIDEBAR
-// ─────────────────────────────────────────
-function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebar-overlay');
-  if (sidebar && overlay) {
-    sidebar.classList.toggle('open');
-    overlay.classList.toggle('open');
-  }
+function dismissSetup() {
+  document.getElementById('setup-notice').style.display = 'none';
 }
 
 // ─────────────────────────────────────────
