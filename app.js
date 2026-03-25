@@ -46,7 +46,12 @@ async function initSupabase() {
 // ─────────────────────────────────────────────────────────────
 async function initAuth() {
   const { data: { session } } = await sb.auth.getSession();
-  if (session) await onLogin(session.user);
+  if (session) {
+    await onLogin(session.user);
+  } else if (window.location.hash === '#admin') {
+    // ✅ Fix : pas de session + hash #admin → forcer la connexion puis rediriger
+    requireAuth(() => adminPanel?.renderAdminDashboard());
+  }
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN') await onLogin(session.user);
     if (event === 'SIGNED_OUT') onLogout();
