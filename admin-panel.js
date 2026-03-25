@@ -24,7 +24,12 @@ class AdminPanel {
         .single();
       if (!profile) { this.isAdmin = false; return false; }
       this.profile = profile;
-      const role = String(profile.admin_role || '').trim().toLowerCase();
+      // ✅ Fix : on retire les guillemets parasites que Supabase peut stocker
+      // ex: "'admin'" → "admin"
+      const role = String(profile.admin_role || '')
+        .trim()
+        .toLowerCase()
+        .replace(/^['"]|['"]$/g, '');  // supprime les ' ou " en début/fin
       this.isAdmin = (role === 'admin' || role === 'moderator') && !profile.banned;
       return this.isAdmin;
     } catch { this.isAdmin = false; return false; }
@@ -233,7 +238,8 @@ styleAdmin.textContent = `
 document.head.appendChild(styleAdmin);
 
 let adminPanel;
-function initAdminPanel() {
+async function initAdminPanel() {
   if (!adminPanel && typeof sb !== 'undefined' && sb) adminPanel = new AdminPanel(sb);
-  if (adminPanel && currentUser) adminPanel.checkAdminStatus(currentUser.id);
+  // ✅ Fix : await sur checkAdminStatus (fonction async)
+  if (adminPanel && currentUser) await adminPanel.checkAdminStatus(currentUser.id);
 }

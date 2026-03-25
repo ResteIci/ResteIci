@@ -30,12 +30,11 @@ async function initSupabase() {
     await initAuth();
     initUserLevels();
     initRealtimeNotifications();
+    // ✅ Fix : initAdminPanel après initAuth (currentUser est dispo)
     initAdminPanel();
     loadFeed();
     loadStats();
-    if (window.location.hash === '#admin') {
-      currentUser ? adminPanel.renderAdminDashboard() : requireAuth(() => adminPanel.renderAdminDashboard());
-    }
+    // ✅ Fix : le hash #admin est géré dans onLogin après checkAdminStatus
   } catch (e) {
     console.error('Supabase init error:', e);
     loadDemoData();
@@ -73,9 +72,7 @@ async function onLogin(user) {
 
   if (postLoginCallback) { postLoginCallback(); postLoginCallback = null; return; }
 
-  if (window.location.hash === '#admin' && typeof adminPanel !== 'undefined') {
-    adminPanel.renderAdminDashboard();
-  }
+  // ✅ Fix : un seul bloc admin, checkAdminStatus attendu avant renderAdminDashboard
   if (typeof adminPanel !== 'undefined') {
     await adminPanel.checkAdminStatus(user.id);
     if (window.location.hash === '#admin') adminPanel.renderAdminDashboard();
