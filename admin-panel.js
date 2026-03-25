@@ -17,22 +17,33 @@ class AdminPanel {
   async checkAdminStatus(userId) {
     if (!this.sb || !userId) return false;
     try {
-      const { data: profile } = await this.sb
+      const { data: profile, error } = await this.sb
         .from('profiles')
         .select('admin_role, banned, display_name')
         .eq('id', userId)
         .single();
+
+      // ✅ Debug — à supprimer après résolution
+      console.log('[ADMIN DEBUG] userId:', userId);
+      console.log('[ADMIN DEBUG] profile:', profile);
+      console.log('[ADMIN DEBUG] error:', error);
+      console.log('[ADMIN DEBUG] admin_role raw:', profile?.admin_role);
+      console.log('[ADMIN DEBUG] admin_role type:', typeof profile?.admin_role);
+      console.log('[ADMIN DEBUG] admin_role charCodes:', profile?.admin_role ? [...profile.admin_role].map(c => c.charCodeAt(0)) : 'null');
+
       if (!profile) { this.isAdmin = false; return false; }
       this.profile = profile;
       // ✅ Fix : on retire les guillemets parasites que Supabase peut stocker
-      // ex: "'admin'" → "admin"
       const role = String(profile.admin_role || '')
         .trim()
         .toLowerCase()
-        .replace(/^['"]|['"]$/g, '');  // supprime les ' ou " en début/fin
+        .replace(/^['"]|['"]$/g, '');
+      console.log('[ADMIN DEBUG] role after clean:', role);
+      console.log('[ADMIN DEBUG] isAdmin result:', (role === 'admin' || role === 'moderator') && !profile.banned);
+
       this.isAdmin = (role === 'admin' || role === 'moderator') && !profile.banned;
       return this.isAdmin;
-    } catch { this.isAdmin = false; return false; }
+    } catch(e) { console.error('[ADMIN DEBUG] catch error:', e); this.isAdmin = false; return false; }
   }
 
   async renderAdminDashboard() {
