@@ -1289,11 +1289,13 @@ img { max-width: 100%; }
 
       <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Changer le thème">🌙</button>
 
-      <button class="btn btn-ghost btn-sm" onclick="window.location.href='about.html'" title="Notre mission">
+      <button class="icon-btn" onclick="openSettings()" title="Paramètres">⚙️</button>
+
+      <button class="btn btn-ghost btn-sm" onclick="window.location.href='about.html'" title="En savoir plus sur notre mission">
         ✨ Notre mission
       </button>
 
-      <button class="btn btn-primary btn-sm" onclick="showPage('write')" id="btn-write-header">
+      <button class="btn btn-primary btn-sm" onclick="showPage('write')" id="btn-write-header" title="Partager un message">
         ✍️ Écrire
       </button>
 
@@ -1634,6 +1636,75 @@ img { max-width: 100%; }
     <p>Ton compte a été suspendu suite à des violations répétées des règles de la communauté. Tu ne peux plus poster ni commenter.<br><br>Si tu penses que c'est une erreur, contacte-nous.</p>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="logout(); closeModal('ban-modal')">Déconnexion</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('settings-modal')">×</button>
+    <h3>⚙️ Paramètres du compte</h3>
+    <div class="form-group">
+      <label class="form-label">Prénom affiché</label>
+      <input class="form-input" id="settings-name" type="text" maxlength="30">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Changer mot de passe</label>
+      <input class="form-input" id="settings-password" type="password" placeholder="Nouveau mot de passe">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Langue</label>
+      <select class="form-select" id="settings-lang">
+        <option value="fr">Français</option>
+        <option value="en">English</option>
+        <option value="es">Español</option>
+        <option value="de">Deutsch</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('settings-modal')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- 2FA MODALS -->
+<div class="modal-overlay" id="totp-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('totp-modal')">×</button>
+    <h3>🔐 Code Authentificateur</h3>
+    <p>Entrez le code de 6 chiffres de votre app (Google Authenticator, etc.)</p>
+    <input class="form-input" id="totp-code" type="text" maxlength="6" placeholder="123456">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('totp-modal')">Annuler</button>
+      <button class="btn btn-primary" onclick="adminPanel.verifyTOTP()">Vérifier</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="email-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('email-modal')">×</button>
+    <h3>📧 Code Email</h3>
+    <p>Un code a été envoyé à votre email. Entrez-le ici.</p>
+    <input class="form-input" id="email-code" type="text" maxlength="6" placeholder="123456">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('email-modal')">Annuler</button>
+      <button class="btn btn-primary" onclick="adminPanel.verifyEmail()">Vérifier</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="pin-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('pin-modal')">×</button>
+    <h3>🔑 Code PIN</h3>
+    <p>Entrez votre code PIN de 4 chiffres.</p>
+    <input class="form-input" id="pin-code" type="password" maxlength="4" placeholder="1234">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('pin-modal')">Annuler</button>
+      <button class="btn btn-primary" onclick="adminPanel.verifyPIN()">Vérifier</button>
     </div>
   </div>
 </div>

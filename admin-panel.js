@@ -34,26 +34,62 @@ class AdminPanel {
       return false;
     }
 
-    // Verify TOTP
-    const totpCode = prompt('Entrez le code de votre application authentificatrice:');
-    if (!totpCode) return false;
-    const isValidTOTP = window.otplib.authenticator.check(totpCode, this.profile.totp_secret);
+    // Open TOTP modal
+    this.openTOTPModal();
+    return new Promise((resolve) => {
+      this.resolve2FA = resolve;
+    });
+  }
 
-    // Verify Email (send code and verify)
-    const emailCode = prompt('Entrez le code envoyé par email:');
-    // Assume we send email code previously, for simplicity, check if matches (in real, store temp code)
-    // For demo, assume valid if entered
+  openTOTPModal() {
+    openModal('totp-modal');
+    document.getElementById('totp-code').focus();
+  }
 
-    // Verify PIN
-    const pin = prompt('Entrez votre code PIN:');
-    const isValidPIN = await this.verifyPIN(pin);
-
-    if (isValidTOTP && emailCode && isValidPIN) {
-      this.is2FAVerified = true;
-      return true;
+  async verifyTOTP() {
+    const code = document.getElementById('totp-code').value;
+    const isValid = window.otplib.authenticator.check(code, this.profile.totp_secret);
+    closeModal('totp-modal');
+    if (isValid) {
+      this.openEmailModal();
+    } else {
+      alert('Code TOTP invalide');
+      this.resolve2FA(false);
     }
-    alert('2FA échoué');
-    return false;
+  }
+
+  openEmailModal() {
+    openModal('email-modal');
+    // Send email code (simulate)
+    alert('Code email envoyé (démonstration: 123456)');
+  }
+
+  async verifyEmail() {
+    const code = document.getElementById('email-code').value;
+    closeModal('email-modal');
+    if (code === '123456') { // demo
+      this.openPINModal();
+    } else {
+      alert('Code email invalide');
+      this.resolve2FA(false);
+    }
+  }
+
+  openPINModal() {
+    openModal('pin-modal');
+  }
+
+  async verifyPIN() {
+    const pin = document.getElementById('pin-code').value;
+    const isValid = this.profile.pin_hash === btoa(pin);
+    closeModal('pin-modal');
+    if (isValid) {
+      this.is2FAVerified = true;
+      this.resolve2FA(true);
+    } else {
+      alert('PIN invalide');
+      this.resolve2FA(false);
+    }
   }
 
   async verifyPIN(pin) {

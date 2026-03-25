@@ -140,6 +140,37 @@ async function logout() {
   else onLogout();
 }
 
+function openSettings() {
+  if (!currentUser) { requireAuth(() => openSettings()); return; }
+  document.getElementById('settings-name').value = currentProfile?.name || '';
+  document.getElementById('settings-lang').value = i18n.currentLang;
+  openModal('settings-modal');
+}
+
+async function saveSettings() {
+  const name = document.getElementById('settings-name').value.trim();
+  const password = document.getElementById('settings-password').value;
+  const lang = document.getElementById('settings-lang').value;
+
+  if (name) {
+    await sb.from('profiles').update({ name }).eq('id', currentUser.id);
+    currentProfile.name = name;
+    showToast('Nom mis à jour !', 'success');
+  }
+
+  if (password) {
+    await sb.auth.updateUser({ password });
+    showToast('Mot de passe changé !', 'success');
+  }
+
+  if (lang !== i18n.currentLang) {
+    i18n.setLang(lang);
+    showToast('Langue changée ! Recharge la page.', 'success');
+  }
+
+  closeModal('settings-modal');
+}
+
 // ─────────────────────────────────────────
 // FEED
 // ─────────────────────────────────────────
