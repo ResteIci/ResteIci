@@ -1,14 +1,17 @@
 // ═══════════════════════════════════════════════════════════════
-// Admin Panel — ResteIci (Corrigé)
+// Admin Panel — ResteIci
+// Navigation principale + page Statistiques
 // ═══════════════════════════════════════════════════════════════
 
 const ADMIN_EMAIL_WHITELIST = [
   'ayoubazarrouy@gmail.com',
-  'youradmin@example.com' // Remplace ou ajoute tes emails admins ici
+  // Ajoute tes autres emails admin ici
 ];
 
-// Clé override URL (accès dev rapide via ?admin_key=...)
 const ADMIN_OVERRIDE_SECRET = 'resteci_admin_access_2026';
+
+// ── Page admin active ─────────────────────────────────────────
+let currentAdminPage = 'stats';
 
 class AdminPanel {
   constructor(supabaseClient) {
@@ -17,21 +20,17 @@ class AdminPanel {
     this.profile = null;
   }
 
-  // ── Helpers URL ──────────────────────────────────────────────
   getUrlParam(name) {
     return new URLSearchParams(window.location.search).get(name);
   }
 
   isAdminOverrideKey() {
-    const key = this.getUrlParam('admin_key');
-    return key === ADMIN_OVERRIDE_SECRET;
+    return this.getUrlParam('admin_key') === ADMIN_OVERRIDE_SECRET;
   }
 
-  // ── Vérifie si l'utilisateur connecté est admin ──────────────
   async checkAdminStatus(userId) {
-    // On récupère le profil ET l'email Supabase Auth
     const [profileRes, userRes] = await Promise.all([
-      this.sb.from('profiles').select('admin_role, banned').eq('id', userId).single(),
+      this.sb.from('profiles').select('admin_role, banned, display_name').eq('id', userId).single(),
       this.sb.auth.getUser()
     ]);
 
@@ -48,301 +47,398 @@ class AdminPanel {
     return this.isAdmin;
   }
 
-  // ── Entrée principale du dashboard ───────────────────────────
   async renderAdminDashboard() {
-    if (!currentUser) {
-      return requireAuth(() => this.renderAdminDashboard());
-    }
+    if (!currentUser) return requireAuth(() => this.renderAdminDashboard());
 
     const isAdmin = await this.checkAdminStatus(currentUser.id);
     if (!isAdmin) return this.showDeniedAccess();
 
-    // Injecter le HTML du dashboard dans la page
-    this._ensureContainer();
-    document.getElementById('admin-container').innerHTML = this._dashboardHTML();
+    // Masque toutes les pages normales, affiche le shell admin
+    document.querySelectorAll('[id^="page-"]').forEach(el => el.classList.add('hidden'));
 
-    // Afficher dans la bonne section selon la structure de la page
-    const adminPage = document.getElementById('page-admin');
-    if (adminPage) {
-      // Si une page dédiée existe, on l'affiche
-      document.querySelectorAll('[id^="page-"]').forEach(el => el.classList.add('hidden'));
-      adminPage.classList.remove('hidden');
-    } else {
-      // Sinon on scroll jusqu'au container
-      document.getElementById('admin-container').scrollIntoView({ behavior: 'smooth' });
+    let shell = document.getElementById('admin-shell');
+    if (!shell) {
+      shell = document.createElement('div');
+      shell.id = 'admin-shell';
+      document.body.appendChild(shell);
     }
 
-    this.loadAdminStats();
+    shell.style.display = 'block';
+    shell.innerHTML = this._shellHTML();
+    this.navigateTo('stats');
   }
 
-  // ── HTML du dashboard ─────────────────────────────────────────
-  _dashboardHTML() {
-    const isOverride = this.isAdminOverrideKey();
+  _shellHTML() {
     return `
-      <div class="admin-panel">
-        <div class="admin-header">
-          <h2>🔐 Panel Admin</h2>
-          ${isOverride ? '<span class="admin-override-badge">⚠️ Mode override actif</span>' : ''}
-          <button class="admin-btn-small" onclick="document.getElementById('admin-container').innerHTML=''">✕ Fermer</button>
-        </div>
-
-        <section class="admin-section">
-          <h3>📊 Statistiques</h3>
-          <div class="admin-stats">
-            <div class="stat-card"><div class="stat-val" id="admin-users-count">…</div><div class="stat-label">Utilisateurs</div></div>
-            <div class="stat-card"><div class="stat-val" id="admin-reports-count">…</div><div class="stat-label">Signalements en attente</div></div>
-            <div class="stat-card"><div class="stat-val" id="admin-posts-count">…</div><div class="stat-label">Posts à modérer</div></div>
+      <div class="admin-layout">
+        <!-- Sidebar nav -->
+        <aside class="admin-sidebar">
+          <div class="admin-brand">
+            <span class="admin-brand-icon">🔐</span>
+            <div>
+              <div class="admin-brand-title">Panel Admin</div>
+              <div class="admin-brand-sub">${escapeHtml(this.profile?.display_name || currentUser?.email || 'Admin')}</div>
+            </div>
           </div>
-        </section>
 
-        <section class="admin-section">
-          <h3>⚠️ Signalements</h3>
-          <div id="admin-reports" class="reports-list"><div class="admin-loading">Chargement…</div></div>
-        </section>
+          <nav class="admin-nav">
+            <button class="admin-nav-item active" data-page="stats" onclick="adminPanel.navigateTo('stats')">
+              <span class="nav-icon">📊</span> Statistiques
+            </button>
+            <button class="admin-nav-item" data-page="moderation" onclick="adminPanel.navigateTo('moderation')">
+              <span class="nav-icon">⚠️</span> Signalements
+              <span class="admin-badge" id="reports-badge" style="display:none">0</span>
+            </button>
+            <button class="admin-nav-item" data-page="users" onclick="adminPanel.navigateTo('users')">
+              <span class="nav-icon">👥</span> Utilisateurs
+            </button>
+            <button class="admin-nav-item" data-page="donations" onclick="adminPanel.navigateTo('donations')">
+              <span class="nav-icon">💰</span> Dons & Objectifs
+            </button>
+          </nav>
 
-        <section class="admin-section">
-          <h3>⚙️ Actions rapides</h3>
-          <div class="admin-actions">
-            <button class="admin-btn" onclick="adminPanel.promptBanUser()">🚫 Bannir un utilisateur</button>
-            <button class="admin-btn" onclick="adminPanel.promptDeletePost()">🗑️ Supprimer un post</button>
-            <button class="admin-btn" onclick="adminPanel.loadAdminStats()">🔄 Rafraîchir</button>
+          <div class="admin-sidebar-footer">
+            <button class="admin-exit-btn" onclick="adminPanel.exitAdmin()">← Retour au site</button>
           </div>
-        </section>
+        </aside>
+
+        <!-- Main content -->
+        <main class="admin-main">
+          <div id="admin-page-content"></div>
+        </main>
       </div>
     `;
   }
 
-  // ── Crée le conteneur s'il n'existe pas ──────────────────────
-  _ensureContainer() {
-    let container = document.getElementById('admin-container');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'admin-container';
+  navigateTo(page) {
+    currentAdminPage = page;
 
-      // Essaie de l'insérer après le feed ou à la fin du body
-      const feed = document.getElementById('feed');
-      if (feed) feed.parentNode.insertBefore(container, feed.nextSibling);
-      else document.body.appendChild(container);
-    }
-    return container;
-  }
+    // Update active nav
+    document.querySelectorAll('.admin-nav-item').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.page === page);
+    });
 
-  // ── Charge les stats ─────────────────────────────────────────
-  async loadAdminStats() {
-    try {
-      const [usersRes, reportsRes, postsRes] = await Promise.all([
-        this.sb.from('profiles').select('*', { count: 'exact', head: true }),
-        this.sb.from('reports').select('*', { count: 'exact', head: true }).eq('resolved', false),
-        this.sb.from('posts').select('*', { count: 'exact', head: true }).eq('approved', false)
-      ]);
+    const content = document.getElementById('admin-page-content');
+    if (!content) return;
 
-      const safe = (res) => (res.error ? '?' : (res.count ?? 0));
-
-      const usersEl = document.getElementById('admin-users-count');
-      const reportsEl = document.getElementById('admin-reports-count');
-      const postsEl = document.getElementById('admin-posts-count');
-
-      if (usersEl) usersEl.textContent = safe(usersRes);
-      if (reportsEl) reportsEl.textContent = safe(reportsRes);
-      if (postsEl) postsEl.textContent = safe(postsRes);
-
-      this.loadReports();
-    } catch (err) {
-      console.error('Admin stats error:', err);
-      showToast('❌ Erreur chargement stats admin', 'error');
+    switch (page) {
+      case 'stats':      this.renderStats(content); break;
+      case 'moderation': adminModeration.render(content); break;
+      case 'users':      adminUsers.render(content); break;
+      case 'donations':  adminDonations.render(content); break;
     }
   }
 
-  // ── Charge les signalements ───────────────────────────────────
-  async loadReports() {
-    const container = document.getElementById('admin-reports');
-    if (!container) return;
+  // ── PAGE STATS ────────────────────────────────────────────────
+  async renderStats(container) {
+    container.innerHTML = `
+      <div class="admin-page">
+        <div class="admin-page-header">
+          <h1>📊 Statistiques</h1>
+          <button class="admin-btn-sm" onclick="adminPanel.renderStats(document.getElementById('admin-page-content'))">🔄 Rafraîchir</button>
+        </div>
 
-    try {
-      const { data: reports, error } = await this.sb
-        .from('reports')
-        .select('id, reason, post_id, reporter_id, posts(content), profiles!reports_reporter_id_fkey(display_name)')
-        .eq('resolved', false)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-
-      if (!reports || reports.length === 0) {
-        container.innerHTML = '<p class="admin-empty">✅ Aucun signalement en attente.</p>';
-        return;
-      }
-
-      container.innerHTML = reports.map(r => `
-        <div class="report-item" id="report-${r.id}">
-          <div class="report-meta">
-            <strong>${escapeHtml(r.profiles?.display_name || 'Utilisateur inconnu')}</strong>
-            a signalé un post
+        <div class="stats-grid">
+          <div class="stat-tile" id="st-users">
+            <div class="st-icon">👥</div>
+            <div class="st-val">…</div>
+            <div class="st-label">Utilisateurs</div>
           </div>
-          <p class="report-content">"${escapeHtml((r.posts?.content || '').substring(0, 150))}${r.posts?.content?.length > 150 ? '…' : ''}"</p>
-          <p class="report-reason">Motif : ${escapeHtml(r.reason || 'Non précisé')}</p>
-          <div class="report-actions">
-            <button class="admin-btn-small" onclick="adminPanel.resolveReport('${r.id}', '${r.post_id}', true)">✅ Supprimer le post</button>
-            <button class="admin-btn-small btn-reject" onclick="adminPanel.resolveReport('${r.id}', null, false)">✕ Ignorer</button>
+          <div class="stat-tile" id="st-posts">
+            <div class="st-icon">📝</div>
+            <div class="st-val">…</div>
+            <div class="st-label">Posts publiés</div>
+          </div>
+          <div class="stat-tile" id="st-reports">
+            <div class="st-icon">🚩</div>
+            <div class="st-val">…</div>
+            <div class="st-label">Signalements en attente</div>
+          </div>
+          <div class="stat-tile" id="st-banned">
+            <div class="st-icon">🚫</div>
+            <div class="st-val">…</div>
+            <div class="st-label">Bannis</div>
+          </div>
+          <div class="stat-tile" id="st-reactions">
+            <div class="st-icon">❤️</div>
+            <div class="st-val">…</div>
+            <div class="st-label">Réactions totales</div>
+          </div>
+          <div class="stat-tile" id="st-donations">
+            <div class="st-icon">💰</div>
+            <div class="st-val">…</div>
+            <div class="st-label">Total dons reçus</div>
           </div>
         </div>
-      `).join('');
-    } catch (err) {
-      console.error('Load reports error:', err);
-      container.innerHTML = '<p class="admin-error">❌ Erreur lors du chargement des signalements.</p>';
-    }
-  }
 
-  // ── Résout un signalement (avec ou sans suppression du post) ──
-  async resolveReport(reportId, postId, deletePost) {
+        <div class="admin-section">
+          <h3>📅 Derniers posts</h3>
+          <div id="recent-posts-list"><div class="admin-loading">Chargement…</div></div>
+        </div>
+      </div>
+    `;
+
     try {
-      if (deletePost && postId) {
-        await this.sb.from('posts').delete().eq('id', postId);
+      const [usersRes, postsRes, reportsRes, bannedRes, reactionsRes, donationsRes] = await Promise.all([
+        this.sb.from('profiles').select('*', { count: 'exact', head: true }),
+        this.sb.from('posts').select('*', { count: 'exact', head: true }).eq('approved', true),
+        this.sb.from('reports').select('*', { count: 'exact', head: true }).eq('resolved', false),
+        this.sb.from('profiles').select('*', { count: 'exact', head: true }).eq('banned', true),
+        this.sb.from('reactions').select('*', { count: 'exact', head: true }),
+        this.sb.from('subgoals').select('current_amount').eq('id', 1).single()
+      ]);
+
+      const set = (id, val) => {
+        const tile = document.getElementById(id);
+        if (tile) tile.querySelector('.st-val').textContent = val;
+      };
+
+      set('st-users',     usersRes.count ?? '?');
+      set('st-posts',     postsRes.count ?? '?');
+      set('st-reports',   reportsRes.count ?? '?');
+      set('st-banned',    bannedRes.count ?? '?');
+      set('st-reactions', reactionsRes.count ?? '?');
+      set('st-donations', donationsRes.data ? (donationsRes.data.current_amount || 0) + ' €' : '?');
+
+      // Badge signalements dans la sidebar
+      const badge = document.getElementById('reports-badge');
+      if (badge && reportsRes.count > 0) {
+        badge.textContent = reportsRes.count;
+        badge.style.display = 'inline-flex';
       }
-      await this.sb.from('reports').update({ resolved: true }).eq('id', reportId);
 
-      // Retire l'élément de la liste sans rechargement complet
-      document.getElementById('report-' + reportId)?.remove();
-      showToast(deletePost ? '✅ Post supprimé et signalement résolu.' : '✅ Signalement ignoré.', 'success');
+      // Derniers posts
+      const { data: recentPosts } = await this.sb
+        .from('posts')
+        .select('id, content, type, created_at, profiles(display_name)')
+        .order('created_at', { ascending: false })
+        .limit(5);
 
-      // Met à jour le compteur
-      const el = document.getElementById('admin-reports-count');
-      if (el) el.textContent = Math.max(0, parseInt(el.textContent || '0') - 1);
+      const listEl = document.getElementById('recent-posts-list');
+      if (listEl) {
+        listEl.innerHTML = (recentPosts || []).map(p => `
+          <div class="recent-post-item">
+            <span class="rp-type type-${p.type}">${p.type}</span>
+            <span class="rp-author">${escapeHtml(p.profiles?.display_name || 'Anonyme')}</span>
+            <span class="rp-content">${escapeHtml((p.content || '').substring(0, 80))}…</span>
+            <span class="rp-time">${formatTime(p.created_at)}</span>
+          </div>
+        `).join('') || '<p class="admin-empty">Aucun post récent.</p>';
+      }
+
     } catch (err) {
-      console.error('Resolve report error:', err);
-      showToast('❌ Erreur lors de la résolution.', 'error');
+      console.error('Stats error:', err);
+      container.querySelector('.stats-grid').innerHTML = '<p class="admin-error">❌ Erreur lors du chargement des statistiques.</p>';
     }
   }
 
-  // ── Bannir un utilisateur ─────────────────────────────────────
-  async promptBanUser() {
-    const userId = prompt('ID de l\'utilisateur à bannir :');
-    if (!userId?.trim()) return;
-
-    const confirm = window.confirm(`Bannir l'utilisateur ${userId} ?`);
-    if (!confirm) return;
-
-    try {
-      const { error } = await this.sb.from('profiles').update({ banned: true }).eq('id', userId.trim());
-      if (error) throw error;
-      showToast('✅ Utilisateur banni.', 'success');
-    } catch (err) {
-      console.error('Ban error:', err);
-      showToast('❌ Erreur : ' + err.message, 'error');
-    }
-  }
-
-  // ── Supprimer un post ─────────────────────────────────────────
-  async promptDeletePost() {
-    const postId = prompt('ID du post à supprimer :');
-    if (!postId?.trim()) return;
-
-    try {
-      const { error } = await this.sb.from('posts').delete().eq('id', postId.trim());
-      if (error) throw error;
-      showToast('✅ Post supprimé.', 'success');
-      this.loadAdminStats();
-    } catch (err) {
-      console.error('Delete post error:', err);
-      showToast('❌ Erreur : ' + err.message, 'error');
-    }
+  exitAdmin() {
+    const shell = document.getElementById('admin-shell');
+    if (shell) shell.style.display = 'none';
+    document.querySelectorAll('[id^="page-"]').forEach(el => {
+      if (el.id === 'page-home') el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    });
+    window.history.pushState({}, '', window.location.pathname);
   }
 
   showDeniedAccess() {
     showToast('⛔ Accès refusé. Tu n\'es pas admin.', 'error');
-    console.warn('Admin access denied for user:', currentUser?.id);
   }
 }
 
-// ── CSS Admin Panel ───────────────────────────────────────────
+// ── CSS complet du panel admin ─────────────────────────────────
 const styleAdmin = document.createElement('style');
 styleAdmin.textContent = `
-#admin-container {
-  max-width: 1000px;
-  margin: 40px auto;
-  padding: 0 24px 80px;
-}
-
-.admin-panel {
-  background: var(--surface);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
+/* ── Layout ── */
+#admin-shell {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg);
   overflow: hidden;
 }
 
-.admin-header {
+.admin-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.admin-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.admin-brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 24px 32px;
+  padding: 20px 20px 16px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg2);
 }
 
-.admin-header h2 {
-  font-size: 1.4rem;
-  color: var(--accent);
+.admin-brand-icon { font-size: 1.6rem; }
+.admin-brand-title { font-weight: 700; font-size: 0.95rem; color: var(--accent); }
+.admin-brand-sub { font-size: 0.75rem; color: var(--text3); margin-top: 2px; }
+
+.admin-nav {
+  padding: 12px 10px;
   flex: 1;
-  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.admin-override-badge {
-  background: rgba(245,169,107,0.15);
-  color: var(--accent);
-  font-size: 0.8rem;
-  padding: 4px 10px;
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.admin-nav-item:hover { background: var(--surface); color: var(--text); }
+.admin-nav-item.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+.nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+
+.admin-badge {
+  margin-left: auto;
+  background: var(--red, #e07878);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
   border-radius: 20px;
-  border: 1px solid rgba(245,169,107,0.3);
+  min-width: 20px;
+  text-align: center;
 }
 
+.admin-sidebar-footer {
+  padding: 16px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.admin-exit-btn {
+  width: 100%;
+  padding: 9px 12px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text3);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.admin-exit-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Main content ── */
+.admin-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.admin-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 28px 80px;
+}
+
+.admin-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.admin-page-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--text);
+}
+
+/* ── Stats grid ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 36px;
+}
+
+.stat-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.stat-tile:hover { transform: translateY(-3px); border-color: var(--border2); }
+.st-icon { font-size: 1.5rem; margin-bottom: 10px; }
+.st-val { font-size: 1.6rem; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.st-label { font-size: 0.75rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ── Sections ── */
 .admin-section {
-  padding: 28px 32px;
+  margin-top: 32px;
+}
+.admin-section h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 14px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
 }
 
-.admin-section:last-child { border-bottom: none; }
-
-.admin-section h3 {
-  margin-bottom: 18px;
-  color: var(--text);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.admin-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 14px;
-}
-
-.stat-card {
-  background: var(--bg2);
-  padding: 18px;
+/* ── Recent posts ── */
+.recent-post-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface);
   border-radius: var(--radius-sm);
-  text-align: center;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
   border: 1px solid var(--border);
 }
-
-.stat-val {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--accent);
+.rp-type {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  flex-shrink: 0;
 }
+.type-encouragement { background: rgba(245,169,107,0.15); color: var(--accent); }
+.type-temoignage { background: rgba(126,200,227,0.15); color: var(--blue); }
+.type-question { background: rgba(196,127,181,0.15); color: var(--purple); }
+.rp-author { color: var(--text); font-weight: 600; flex-shrink: 0; min-width: 80px; }
+.rp-content { color: var(--text2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-time { color: var(--text3); flex-shrink: 0; font-size: 0.75rem; }
 
-.stat-label {
-  color: var(--text3);
-  font-size: 0.8rem;
-  margin-top: 6px;
-}
-
-.admin-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
+/* ── Boutons ── */
 .admin-btn {
-  padding: 10px 18px;
+  padding: 10px 20px;
   background: var(--accent);
   color: #1a0a00;
   border: none;
@@ -351,90 +447,78 @@ styleAdmin.textContent = `
   font-weight: 600;
   font-size: 0.875rem;
   font-family: var(--font-body);
-  transition: all var(--transition);
+  transition: all 0.2s;
 }
+.admin-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(245,169,107,0.3); }
 
-.admin-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(245,169,107,0.3);
-}
-
-.admin-btn-small {
-  padding: 6px 12px;
-  font-size: 0.78rem;
+.admin-btn-sm {
+  padding: 7px 14px;
   background: var(--surface2);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
+  font-size: 0.8rem;
   font-family: var(--font-body);
   transition: all 0.2s;
 }
+.admin-btn-sm:hover { border-color: var(--accent); color: var(--accent); }
 
-.admin-btn-small:hover { border-color: var(--accent); color: var(--accent); }
-.admin-btn-small.btn-reject:hover { border-color: #e07878; color: #e07878; }
-
-.report-item {
-  background: var(--bg2);
-  padding: 16px 20px;
-  border-radius: var(--radius-sm);
-  margin-bottom: 12px;
-  border-left: 3px solid rgba(224,120,120,0.5);
-}
-
-.report-meta {
-  font-size: 0.875rem;
-  margin-bottom: 8px;
-  color: var(--text);
-}
-
-.report-content {
-  font-size: 0.85rem;
-  color: var(--text2);
-  margin-bottom: 8px;
-  font-style: italic;
-}
-
-.report-reason {
-  font-size: 0.8rem;
-  color: var(--text3);
-  margin-bottom: 12px;
-}
-
-.report-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.admin-empty, .admin-loading {
-  color: var(--text3);
-  font-size: 0.9rem;
-  padding: 16px 0;
-}
-
-.admin-error {
+.admin-btn-danger {
+  padding: 7px 14px;
+  background: rgba(224,120,120,0.15);
   color: #e07878;
-  font-size: 0.9rem;
-  padding: 16px 0;
+  border: 1px solid rgba(224,120,120,0.3);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  transition: all 0.2s;
+}
+.admin-btn-danger:hover { background: rgba(224,120,120,0.25); }
+
+/* ── Misc ── */
+.admin-loading { color: var(--text3); font-size: 0.9rem; padding: 20px 0; text-align: center; }
+.admin-empty { color: var(--text3); font-size: 0.875rem; padding: 20px 0; text-align: center; }
+.admin-error { color: #e07878; font-size: 0.875rem; padding: 20px 0; text-align: center; }
+
+.admin-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 14px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.admin-input:focus { border-color: var(--accent); }
+
+.admin-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-@media (max-width: 640px) {
-  .admin-section { padding: 20px; }
-  .admin-header { padding: 18px 20px; }
-  #admin-container { padding: 0 12px 60px; }
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .admin-sidebar { width: 60px; }
+  .admin-brand-title, .admin-brand-sub, .admin-nav-item span:not(.nav-icon), .admin-exit-btn { display: none; }
+  .admin-nav-item { justify-content: center; padding: 12px; }
+  .admin-page { padding: 20px 16px 60px; }
 }
 `;
 document.head.appendChild(styleAdmin);
 
-// ── Instance globale ──────────────────────────────────────────
+// ── Instance globale ───────────────────────────────────────────
 let adminPanel;
 
 function initAdminPanel() {
   if (!adminPanel && typeof sb !== 'undefined' && sb) {
     adminPanel = new AdminPanel(sb);
   }
-
-  // Pré-vérifie le statut admin dès le chargement si l'utilisateur est connecté
   if (adminPanel && currentUser) {
     adminPanel.checkAdminStatus(currentUser.id);
   }
