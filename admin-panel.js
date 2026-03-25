@@ -19,7 +19,10 @@ class AdminPanel {
       .eq('id', userId)
       .single();
 
-    this.isAdmin = profile?.admin_role === 'admin' || profile?.admin_role === 'moderator';
+    const rawRole = profile?.admin_role || '';
+    const normalizedRole = String(rawRole).replace(/^['"]|['"]$/g, '').trim().toLowerCase();
+
+    this.isAdmin = normalizedRole === 'admin' || normalizedRole === 'moderator';
     this.profile = profile;
     return this.isAdmin;
   }
@@ -161,7 +164,12 @@ class AdminPanel {
 
   // Dashboard admin
   async renderAdminDashboard() {
-    if (!this.isAdmin) return this.showDeniedAccess();
+    if (!currentUser) {
+      return requireAuth(() => this.renderAdminDashboard());
+    }
+
+    const isAdmin = await this.checkAdminStatus(currentUser.id);
+    if (!isAdmin) return this.showDeniedAccess();
 
     if (!this.is2FAVerified) {
       const verified = await this.verify2FA();
@@ -399,12 +407,15 @@ document.head.appendChild(styleAdmin);
 let adminPanel;
 
 function initAdminPanel() {
-  if (sb && !adminPanel) {
+  if (!adminPanel) {
     adminPanel = new AdminPanel(sb);
-    if (currentUser) {
-      adminPanel.checkAdminStatus(currentUser.id).then(isAdmin => {
-        if (isAdmin) adminPanel.renderAdminDashboard();
-      });
-    }
+  }
+
+  if (currentUser) {
+    adminPanel.checkAdminStatus(currentUser.id).then(isAdmin => {
+      if (isAdmin && window.location.hash === '#admin') {
+        adminPanel.renderAdminDashboard();
+      }
+    });
   }
 }

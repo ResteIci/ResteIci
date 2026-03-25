@@ -87,6 +87,14 @@ async function onLogin(user) {
   document.getElementById('user-menu').classList.remove('hidden');
   const initials = (currentProfile?.display_name || user.email || '?').slice(0, 2).toUpperCase();
   document.getElementById('user-avatar-btn').textContent = initials;
+
+  // Init or refresh admin panel state after login
+  if (typeof adminPanel !== 'undefined' && adminPanel) {
+    await adminPanel.checkAdminStatus(user.id);
+    if (window.location.hash === '#admin') {
+      adminPanel.renderAdminDashboard();
+    }
+  }
 }
 
 function onLogout() {
