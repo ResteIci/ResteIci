@@ -549,13 +549,21 @@ function showPage(page) {
   if (navTabs) navTabs.style.display = page === 'home' ? 'block' : 'none';
   if (page === 'home') loadFeed();
   if (page === 'write' && !currentUser && sb) { showPage('auth'); return; }
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // ✅ Fix : si on va sur auth depuis /#admin, scroll to top pour que le formulaire soit visible
+  if (page === 'auth') window.scrollTo({ top: 0, behavior: 'smooth' });
+  else window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function requireAuth(callback) {
   if (currentUser) { if (callback) callback(); return; }
   if (callback) postLoginCallback = callback;
+  // ✅ Fix : force affichage page auth + scroll top (sinon page home reste visible sur /#admin)
   showPage('auth');
+  setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
+  // ✅ Petit toast pour indiquer pourquoi on est redirigé
+  if (window.location.hash === '#admin') {
+    showToast('🔐 Connecte-toi pour accéder au panel admin.', 'error');
+  }
 }
 
 function scrollToFeed() {
