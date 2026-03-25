@@ -9,8 +9,9 @@
 let sb = null;
 let currentUser = null;
 let currentProfile = null;
+let postLoginCallback = null; // action à exécuter après connexion (ex: rendre admin)
 
-function initSupabase() {
+async function initSupabase() {
   if (typeof window.supabase === 'undefined') {
     console.warn('Supabase SDK non chargé — mode démo activé');
     loadDemoData();
@@ -25,26 +26,23 @@ function initSupabase() {
       return;
     }
     document.getElementById('setup-notice').style.display = 'none';
-    
+
     // ─ Initialize all modules
-    initAuth();
+    await initAuth();
     initUserLevels();
     initRealtimeNotifications();
     initAdminPanel();
-    
+
     loadFeed();
     loadStats();
 
-    // Check for admin hash
+    // Check for admin hash (après initAuth et initAdminPanel)
     if (window.location.hash === '#admin') {
-      // Wait for user session
-      setTimeout(() => {
-        if (currentUser) {
-          adminPanel.renderAdminDashboard();
-        } else {
-          requireAuth(() => adminPanel.renderAdminDashboard());
-        }
-      }, 500);
+      if (currentUser) {
+        adminPanel.renderAdminDashboard();
+      } else {
+        requireAuth(() => adminPanel.renderAdminDashboard());
+      }
     }
   } catch (e) {
     console.error('Erreur Supabase :', e);
@@ -87,6 +85,18 @@ async function onLogin(user) {
   document.getElementById('user-menu').classList.remove('hidden');
   const initials = (currentProfile?.display_name || user.email || '?').slice(0, 2).toUpperCase();
   document.getElementById('user-avatar-btn').textContent = initials;
+
+  // Exécute action post-auth (ex: redirection vers admin)
+  if (postLoginCallback) {
+    postLoginCallback();
+    postLoginCallback = null;
+    return;
+  }
+
+  // Si on est déjà sur #admin, relance le rendu admin
+  if (window.location.hash === '#admin' && typeof adminPanel !== 'undefined' && adminPanel) {
+    adminPanel.renderAdminDashboard();
+  }
 
   // Init or refresh admin panel state after login
   if (typeof adminPanel !== 'undefined' && adminPanel) {
@@ -703,7 +713,15 @@ function showPage(page) {
 }
 
 function requireAuth(callback) {
-  if (currentUser) { if (callback) callback(); return; }
+  if (currentUser) {
+    if (callback) callback();
+    return;
+  }
+
+  if (callback) {
+    postLoginCallback = callback;
+  }
+
   showPage('auth');
 }
 
