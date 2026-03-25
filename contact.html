@@ -130,25 +130,25 @@
       <span class="icon">📧</span>
       <h3>Email général</h3>
       <p>Pour toute question sur le site, un partenariat, ou une demande générale.</p>
-      <a href="mailto:contact@resteici.fr">contact@resteici.fr</a>
+      <a href="/cdn-cgi/l/email-protection#c3a0acadb7a2a0b783b1a6b0b7a6aaa0aaeda5b1"><span class="__cf_email__" data-cfemail="e4878b8a90858790a496819790818d878dca8296">[email&#160;protected]</span></a>
     </div>
     <div class="contact-card">
       <span class="icon">🔐</span>
       <h3>Données personnelles</h3>
       <p>Suppression de compte, accès à tes données, exercice de tes droits RGPD.</p>
-      <a href="mailto:privacy@resteici.fr">privacy@resteici.fr</a>
+      <a href="/cdn-cgi/l/email-protection#4c3c3e253a2d2f350c3e293f3829252f25622a3e"><span class="__cf_email__" data-cfemail="5d2d2f342b3c3e241d2f382e2938343e34733b2f">[email&#160;protected]</span></a>
     </div>
     <div class="contact-card">
       <span class="icon">🚩</span>
       <h3>Contenu illicite</h3>
       <p>Pour signaler un contenu illicite ou très grave non retiré par le système automatique.</p>
-      <a href="mailto:moderation@resteici.fr">moderation@resteici.fr</a>
+      <a href="/cdn-cgi/l/email-protection#3e53515a5b4c5f4a5751507e4c5b4d4a5b575d5710584c"><span class="__cf_email__" data-cfemail="82efede6e7f0e3f6ebedecc2f0e7f1f6e7ebe1ebace4f0">[email&#160;protected]</span></a>
     </div>
     <div class="contact-card">
       <span class="icon">💛</span>
       <h3>Soutenir le projet</h3>
       <p>Tu veux faire un don ou nous soutenir d'une autre façon ? Écris-nous !</p>
-      <a href="mailto:contact@resteici.fr">Nous écrire</a>
+      <a href="/cdn-cgi/l/email-protection#b2d1dddcc6d3d1c6f2c0d7c1c6d7dbd1db9cd4c0">Nous écrire</a>
     </div>
   </div>
 
@@ -194,24 +194,9 @@
   <a href="tel:3114">🆘 3114</a>
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 function sendContact() {
   const name = document.getElementById('contact-name').value.trim();
   const email = document.getElementById('contact-email').value.trim();
   const subject = document.getElementById('contact-subject').value.trim();
-  const message = document.getElementById('contact-message').value.trim();
-
-  if (!name || !email || !message) {
-    alert('Merci de remplir au moins ton prénom, ton email et ton message.');
-    return;
-  }
-
-  // Ouvre le client mail avec les infos pré-remplies
-  const mailto = `mailto:contact@resteici.fr?subject=${encodeURIComponent(subject || 'Contact ResteIci')}&body=${encodeURIComponent(`Prénom : ${name}\nEmail : ${email}\n\n${message}`)}`;
-  window.location.href = mailto;
-
-  document.getElementById('contact-success').style.display = 'block';
-}
-</script>
-</body>
-</html>
+  const message = document.getElement

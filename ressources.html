@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ressources d'urgence — ResteIci</title>
+<meta name="description" content="Numéros d'urgence et ressources pour les victimes de harcèlement et personnes en détresse.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4197178870821944" crossorigin="anonymous"></script>
+<style>
+:root {
+  --font-display:'DM Serif Display',serif;
+  --font-body:'DM Sans',sans-serif;
+  --radius:16px; --radius-sm:8px; --radius-pill:100px;
+}
+[data-theme="dark"] {
+  --bg:#080a0f; --bg2:#0d0f16; --surface:#111420; --surface2:#181c2a;
+  --border:rgba(255,255,255,.06); --border2:rgba(255,255,255,.11);
+  --text:#e8e6f4; --text2:#9c99b8; --text3:#555270;
+  --accent:#e8956d; --adim:rgba(232,149,109,.1);
+  --blue:#6db8e8; --bdim:rgba(109,184,232,.1);
+  --green:#6de8a0; --gdim:rgba(109,232,160,.1);
+  --red:#e87d7d; --rdim:rgba(232,125,125,.1);
+  --shadow:0 12px 48px rgba(0,0,0,.5);
+}
+[data-theme="light"] {
+  --bg:#f8f7f3; --bg2:#f0ede6; --surface:#fff; --surface2:#f5f2ec;
+  --border:rgba(0,0,0,.06); --border2:rgba(0,0,0,.1);
+  --text:#1a1726; --text2:#5a566e; --text3:#9a96a8;
+  --accent:#c96b3e; --adim:rgba(201,107,62,.1);
+  --blue:#2a6ea8; --bdim:rgba(42,110,168,.1);
+  --green:#2a8a52; --gdim:rgba(42,138,82,.1);
+  --red:#a83a3a; --rdim:rgba(168,58,58,.1);
+  --shadow:0 12px 48px rgba(0,0,0,.08);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);line-height:1.6;}
+a{color:inherit;text-decoration:none;}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.4;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");}
+
+header{position:sticky;top:0;z-index:100;background:rgba(8,10,15,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:16px;}
+[data-theme="light"] header{background:rgba(248,247,243,.9);}
+.logo{font-family:var(--font-display);font-size:1.5rem;color:var(--accent);}
+.logo em{color:var(--text);font-style:italic;}
+.back-link{margin-left:auto;padding:7px 16px;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:.82rem;font-weight:500;transition:all .18s;font-family:var(--font-body);cursor:pointer;}
+.back-link:hover{background:var(--surface);color:var(--text);border-color:var(--border2);}
+
+main{max-width:860px;margin:0 auto;padding:56px 24px 100px;}
+
+.page-hero{text-align:center;margin-bottom:52px;}
+.page-hero h1{font-family:var(--font-display);font-size:clamp(2.2rem,6vw,3.5rem);margin-bottom:14px;line-height:1.1;}
+.page-hero h1 em{color:var(--accent);}
+.page-hero p{color:var(--text2);font-size:1rem;font-weight:300;max-width:520px;margin:0 auto;}
+
+/* Urgence CTA */
+.urgence-cta{background:linear-gradient(135deg,rgba(232,125,125,.12),rgba(184,125,232,.07));border:1px solid rgba(232,125,125,.2);border-radius:var(--radius);padding:32px;text-align:center;margin-bottom:40px;}
+.urgence-cta .big-num{font-family:var(--font-display);font-size:4rem;color:var(--red);display:block;line-height:1;margin:8px 0;}
+.urgence-cta h2{font-family:var(--font-display);font-size:1.3rem;color:var(--red);margin-bottom:8px;}
+.urgence-cta p{color:var(--text2);font-size:.9rem;font-weight:300;}
+
+/* Grid ressources */
+.section-title{font-family:var(--font-display);font-size:1.3rem;color:var(--text2);margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.resources-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:40px;}
+.res-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;transition:transform .18s,border-color .18s,box-shadow .18s;}
+.res-card:hover{transform:translateY(-3px);border-color:var(--border2);box-shadow:var(--shadow);}
+.res-icon{font-size:1.9rem;display:block;margin-bottom:11px;}
+.res-card h3{font-family:var(--font-display);font-size:1.05rem;font-weight:400;margin-bottom:6px;}
+.res-card p{color:var(--text2);font-size:.82rem;font-weight:300;margin-bottom:14px;line-height:1.6;}
+.res-link{display:inline-flex;align-items:center;gap:6px;background:var(--adim);color:var(--accent);padding:7px 14px;border-radius:var(--radius-pill);font-size:.8rem;font-weight:500;transition:all .18s;border:none;cursor:pointer;font-family:var(--font-body);}
+.res-link:hover{background:var(--accent);color:#fff;}
+.res-link.blue{background:var(--bdim);color:var(--blue);}
+.res-link.blue:hover{background:var(--blue);color:#fff;}
+.res-link.green{background:var(--gdim);color:var(--green);}
+.res-link.green:hover{background:var(--green);color:#1a1726;}
+
+/* Ad */
+.ad-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;display:flex;align-items:center;gap:10px;min-height:90px;overflow:hidden;margin-bottom:32px;}
+.ad-label{font-size:.6rem;color:var(--text3);text-transform:uppercase;letter-spacing:1px;writing-mode:vertical-rl;flex-shrink:0;}
+
+footer{background:var(--bg2);border-top:1px solid var(--border);padding:24px;text-align:center;}
+footer p{color:var(--text3);font-size:.8rem;}
+footer a{color:var(--accent);margin:0 8px;}
+
+@media(max-width:600px){.resources-grid{grid-template-columns:1fr;}header{padding:11px 16px;}}
+</style>
+</head>
+<body>
+<header>
+  <a href="index.html" class="logo">Reste<em>Ici</em></a>
+  <button class="back-link" onclick="history.back()">← Retour</button>
+</header>
+
+<main>
+  <div class="page-hero">
+    <h1>Ressources <em>d'urgence</em></h1>
+    <p>Si tu traverses un moment difficile, ces ressources sont là pour toi. Tu n'es jamais seul(e).</p>
+  </div>
+
+  <div class="urgence-cta">
+    <h2>🆘 En danger immédiat ?</h2>
+    <a href="tel:3114" class="big-num">📞 3114</a>
+    <p>Numéro national de prévention du suicide — <strong>gratuit, confidentiel, 24h/24, 7j/7</strong><br>Accessible depuis toute la France.</p>
+  </div>
+
+  <!-- Ad -->
+  <div class="ad-wrap">
+    <span class="ad-label">Pub</span>
+    <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-4197178870821944" data-ad-slot="3333333333" data-ad-format="horizontal" data-full-width-responsive="true"></ins>
+  </div>
+  <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+
+  <h2 class="section-title">📞 Lignes d'écoute</h2>
+  <div class="resources-grid">
+    <div class="res-card">
+      <span class="res-icon">🧠</span>
+      <h3>3114 — Prévention suicide</h3>
+      <p>Professionnels de santé mentale à l'écoute. Gratuit, 24h/24, 7j/7 partout en France.</p>
+      <a href="tel:3114" class="res-link">Appeler le 3114</a>
+    </div>
+    <div class="res-card">
+      <span class="res-icon">👧</span>
+      <h3>30 20 — Harcèlement scolaire</h3>
+      <p>Numéro national dédié aux victimes de harcèlement à l'école. Gratuit et confidentiel.</p>
+      <a href="tel:3020" class="res-link">Appeler le 30 20</a>
+    </div>
+    <div class="res-card">
+      <span class="res-icon">❤️</span>
+      <h3>Croix-Rouge Écoute</h3>
+      <p>Bénévoles à l'écoute pour rompre l'isolement. Pour tous, à tout moment.</p>
+      <a href="tel:0800858858" class="res-link">0 800 858 858</a>
+    </div>
+    <div class="res-card">
+      <span class="res-icon">💬</span>
+      <h3>Fil Santé Jeunes</h3>
+      <p>Écoute pour les 12-25 ans. Chat et téléphone disponibles. Tout sujet accepté.</p>
+      <a href="https://www.filsantejeunes.com" target="_blank" rel="noopener" class="res-link blue">Visiter le site</a>
+    </div>
+  </div>
+
+  <h2 class="section-title">🌐 Aides en ligne</h2>
+  <div class="resources-grid">
+    <div class="res-card">
+      <span class="res-icon">🛡️</span>
+      <h3>e-enfance.org</h3>
+      <p>Association contre le cyberharcèlement. Chat en ligne disponible pour les jeunes victimes.</p>
+      <a href="https://www.e-enfance.org" target="_blank" rel="noopener" class="res-link blue">Visiter</a>
+    </div>
+    <div class="res-card">
+      <span class="res-icon">⚖️</span>
+      <h3>Pharos — Signalement</h3>
+      <p>Signaler un contenu illicite en ligne directement aux autorités françaises.</p>
+      <a href="https://www.pharos.fr" target="_blank" rel="noopener" class="res-link blue">Pharos.fr</a>
+    </div>
+    <div class="res-card">
+      <span class="res-icon">🏥</span>
+      <h3>SAMU — Urgences médicales</h3>
+      <p>En danger physique immédiat pour toi ou quelqu'un : appelle maintenant.</p>
+      <a href="tel:15" class="res-link">SAMU — 15</a>
+    </div>
+    <div class="res-card">
+      <span class="res-icon">👮</span>
+      <h3>Police / Gendarmerie</h3>
+      <p>Violences, menaces, harcèlement grave. Tu peux signaler de façon confidentielle.</p>
+      <a href="tel:17" class="res-link">Police — 17</a>
+    </div>
+  </div>
+
+  <h2 class="section-title">💛 ResteIci — Communauté</h2>
+  <div class="resources-grid">
+    <div class="res-card">
+      <span class="res-icon">🌱</span>
+      <h3>Partager sur ResteIci</h3>
+      <p>Rejoins notre communauté. Partage ce que tu ressens, lis des témoignages, reçois du soutien.</p>
+      <a href="index.html" class="res-link green">Aller sur ResteIci</a>
+    </div>
+    <div class="res-card">
+      <span class="res-icon">👥</span>
+      <h3>Communauté bienveillante</h3>
+      <p>Découvre les membres actifs de ResteIci et les valeurs qui nous unissent.</p>
+      <a href="communaute.html" class="res-link green">Voir la communauté</a>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p>© 2025 ResteIci · <a href="index.html">Accueil</a> · <a href="contact.html">Contact</a> · <a href="mentions-legales.html">Mentions légales</a> · <a href="tel:3114">🆘 3114</a></p>
+</footer>
+</body>
+</html>
