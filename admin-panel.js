@@ -23,13 +23,6 @@ class AdminPanel {
         .eq('id', userId)
         .single();
 
-      // ✅ Debug — à supprimer après résolution
-      console.log('[ADMIN DEBUG] userId:', userId);
-      console.log('[ADMIN DEBUG] profile:', profile);
-      console.log('[ADMIN DEBUG] error:', error);
-      console.log('[ADMIN DEBUG] admin_role raw:', profile?.admin_role);
-      console.log('[ADMIN DEBUG] admin_role type:', typeof profile?.admin_role);
-      console.log('[ADMIN DEBUG] admin_role charCodes:', profile?.admin_role ? [...profile.admin_role].map(c => c.charCodeAt(0)) : 'null');
 
       if (!profile) { this.isAdmin = false; return false; }
       this.profile = profile;
@@ -38,12 +31,10 @@ class AdminPanel {
         .trim()
         .toLowerCase()
         .replace(/^['"]|['"]$/g, '');
-      console.log('[ADMIN DEBUG] role after clean:', role);
-      console.log('[ADMIN DEBUG] isAdmin result:', (role === 'admin' || role === 'moderator') && !profile.banned);
 
       this.isAdmin = (role === 'admin' || role === 'moderator') && !profile.banned;
       return this.isAdmin;
-    } catch(e) { console.error('[ADMIN DEBUG] catch error:', e); this.isAdmin = false; return false; }
+    } catch(e) { console.error('Admin check error:', e); this.isAdmin = false; return false; }
   }
 
   async renderAdminDashboard() {
@@ -250,7 +241,9 @@ document.head.appendChild(styleAdmin);
 
 let adminPanel;
 async function initAdminPanel() {
-  if (!adminPanel && typeof sb !== 'undefined' && sb) adminPanel = new AdminPanel(sb);
-  // ✅ Fix : await sur checkAdminStatus (fonction async)
+  if (!adminPanel) {
+    if (typeof sb === 'undefined' || !sb) return; // Supabase pas encore prêt
+    adminPanel = new AdminPanel(sb);
+  }
   if (adminPanel && currentUser) await adminPanel.checkAdminStatus(currentUser.id);
 }

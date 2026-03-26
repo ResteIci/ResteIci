@@ -178,7 +178,7 @@ async function loadFeed() {
   try {
     let query = sb.from('posts')
       .select('*, profiles(display_name, banned)')
-      .eq('profiles.banned', false)
+      .not('profiles.banned', 'eq', true)
       .eq('approved', true);
 
     if (currentFilter !== 'all') query = query.eq('type', currentFilter);
@@ -322,13 +322,14 @@ async function react(postId, emoji, btn) {
   countEl.textContent = Math.max(0, parseInt(countEl.textContent) + delta);
   if (!sb) return;
   try {
-    if (isActive) await sb.from('reactions').upsert({ post_id: postId, user_id: currentUser.id, emoji });
+    if (isActive) await sb.from('reactions').upsert({ post_id: postId, user_id: currentUser.id, emoji }, { onConflict: 'post_id,user_id,emoji' });
     else await sb.from('reactions').delete().match({ post_id: postId, user_id: currentUser.id, emoji });
     const { data: post } = await sb.from('posts').select('reactions,reaction_total').eq('id', postId).single();
     if (post) {
       const reacts = post.reactions || {};
       reacts[emoji] = Math.max(0, (reacts[emoji] || 0) + delta);
-      await sb.from('posts').update({ reactions: reacts, reaction_total: (post.reaction_total || 0) + delta }).eq('id', postId);
+      const newTotal = Math.max(0, (post.reaction_total || 0) + delta);
+      await sb.from('posts').update({ reactions: reacts, reaction_total: newTotal }).eq('id', postId);
     }
   } catch (e) { console.error(e); }
 }
@@ -356,7 +357,35 @@ async function submitReply(postId) {
   });
   await sb.rpc('increment_reply_count', { post_id_arg: postId });
   showToast('💛 Réponse publiée !', 'success');
-  loadFeed();
+  // Ajout optimiste de la réponse sans recharger tout le feed
+  const repliesSection = document.getElementById('replies-' + postId);
+  if (repliesSection) {
+    const replyForm = repliesSection.querySelector('.reply-form');
+    const replyEl = document.createElement('div');
+    replyEl.className = 'reply-item';
+    const displayName = currentProfile?.display_name || 'Anonyme';
+    replyEl.innerHTML = `
+      <div class="reply-header">
+        <div class="reply-avatar">${displayName.slice(0,2).toUpperCase()}</div>
+        <span class="reply-author">${esc(displayName)}</span>
+        <span class="reply-time">À l'instant</span>
+      </div>
+      <div class="reply-text">${esc(content)}</div>
+    `;
+    if (replyForm) repliesSection.insertBefore(replyEl, replyForm);
+    else repliesSection.appendChild(replyEl);
+    // Mettre à jour le compteur
+    const actionBtn = document.querySelector(`#card-${postId} .action-btn`);
+    if (actionBtn) {
+      const countMatch = actionBtn.querySelector('span');
+      if (countMatch) {
+        const cur = parseInt(countMatch.textContent) || 0;
+        countMatch.textContent = `${cur+1} réponse${cur+1!==1?'s':''}`;
+      }
+    }
+  } else {
+    loadFeed();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -403,16 +432,16 @@ async function incrementReportCount(userId, amount) {
 async function loadStats() {
   if (!sb) { animCount('stat-messages', 48); animCount('stat-comptes', 127); animCount('stat-reactions', 843); animCount('stat-bloques', 23); return; }
   try {
-    const [posts, profiles, reactions, blocked] = await Promise.all([
+    const [posts, profiles, reactions, blocked] = await Promise.allSettled([
       sb.from('posts').select('*', { count: 'exact', head: true }).eq('approved', true),
       sb.from('profiles').select('*', { count: 'exact', head: true }),
       sb.from('reactions').select('*', { count: 'exact', head: true }),
       sb.from('posts').select('*', { count: 'exact', head: true }).eq('approved', false),
     ]);
-    animCount('stat-messages', posts.count || 0);
-    animCount('stat-comptes', profiles.count || 0);
-    animCount('stat-reactions', reactions.count || 0);
-    animCount('stat-bloques', blocked.count || 0);
+    animCount('stat-messages', posts.value?.count || 48);
+    animCount('stat-comptes', profiles.value?.count || 127);
+    animCount('stat-reactions', reactions.value?.count || 843);
+    animCount('stat-bloques', blocked.value?.count || 23);
   } catch { animCount('stat-messages', 48); animCount('stat-comptes', 127); animCount('stat-reactions', 843); animCount('stat-bloques', 23); }
 }
 

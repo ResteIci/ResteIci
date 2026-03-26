@@ -29,7 +29,8 @@ class UserLevelSystem {
   async incrementPoints(userId, amount = 1) {
     if (!this.sb || !userId) return;
     try {
-      const { data: existing } = await this.sb.from('user_levels').select('points').eq('user_id', userId).maybeSingle();
+      const { data: existing, error: fetchErr } = await this.sb.from('user_levels').select('points').eq('user_id', userId).maybeSingle();
+      if (fetchErr && fetchErr.code !== 'PGRST116') throw fetchErr;
       const newPoints = (existing?.points || 0) + amount;
       const newLevel = this.getLevelByPoints(newPoints);
       // ✅ Fix : onConflict sur user_id, pas de .eq() après upsert

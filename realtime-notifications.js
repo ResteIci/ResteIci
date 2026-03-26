@@ -40,7 +40,9 @@ class RealtimeNotifications {
   }
 
   _createContainer() {
-    const c = document.createElement('div');
+    let c = document.getElementById('notif-container');
+    if (c) return c;
+    c = document.createElement('div');
     c.id = 'notif-container'; c.className = 'notif-container';
     document.body.appendChild(c); return c;
   }

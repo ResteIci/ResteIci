@@ -67,7 +67,9 @@ async function addAIAnalysisToPost(postEl, postContent) {
     const el = document.createElement('div');
     el.className = 'ai-risk-banner';
     el.innerHTML = `🆘 Si tu traverses une crise, le <strong><a href="tel:3114">3114</a></strong> est là pour toi — gratuit, 24h/24.`;
-    postEl.querySelector('.post-content')?.insertAdjacentElement('afterend', el);
+    const postContentEl = postEl.querySelector('.post-content');
+    if (postContentEl) postContentEl.insertAdjacentElement('afterend', el);
+    else postEl.prepend(el);
   }
   // Analyse Grok async (non bloquante)
   try {

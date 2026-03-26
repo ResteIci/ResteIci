@@ -197,7 +197,7 @@ class AdminModeration {
         sb.from('reports').update({ resolved: true }).eq('id', reportId),
       ]);
       // Incrémente le compteur de signalements de l'auteur
-      if (authorId) {
+      if (authorId && authorId !== 'undefined') {
         const { data: p } = await sb.from('profiles').select('report_count').eq('id', authorId).single();
         const newCount = (p?.report_count || 0) + 1;
         await sb.from('profiles').update({

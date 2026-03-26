@@ -199,4 +199,27 @@ function sendContact() {
   const name = document.getElementById('contact-name').value.trim();
   const email = document.getElementById('contact-email').value.trim();
   const subject = document.getElementById('contact-subject').value.trim();
-  const message = document.getElement
+  const message = document.getElementById('contact-message').value.trim();
+
+  if (!name || !email || !message) {
+    alert('Remplis tous les champs obligatoires.');
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    alert('Adresse email invalide.');
+    return;
+  }
+
+  // Envoi via mailto (fallback sans backend)
+  const mailtoLink = 'mailto:contact@resteici.fr?subject=' + encodeURIComponent(subject || 'Contact ResteIci') + '&body=' + encodeURIComponent('De: ' + name + ' (' + email + ')\n\n' + message);
+  window.location.href = mailtoLink;
+
+  document.getElementById('contact-success').style.display = 'block';
+  document.getElementById('contact-name').value = '';
+  document.getElementById('contact-email').value = '';
+  document.getElementById('contact-subject').value = '';
+  document.getElementById('contact-message').value = '';
+}
+</script>

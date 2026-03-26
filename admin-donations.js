@@ -105,11 +105,12 @@ class AdminDonations {
 
       const total = (history || []).reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
 
-      // Récupère ou crée l'objectif annuel
+      // Récupère le premier objectif (objectif principal)
       const { data: goal } = await sb
         .from('subgoals')
         .select('*')
-        .eq('id', 1)
+        .order('created_at', { ascending: true })
+        .limit(1)
         .single();
 
       const target = goal?.target_amount || 500;
@@ -123,7 +124,7 @@ class AdminDonations {
               <div class="goal-main-title">${escapeHtml(goal?.title || 'Objectif annuel')}</div>
               <div class="goal-main-desc">${escapeHtml(goal?.description || 'Frais de serveur et de fonctionnement')}</div>
             </div>
-            <button class="admin-btn-sm" onclick="adminDonations.editGoal(1)">✏️ Modifier</button>
+            <button class="admin-btn-sm" onclick="adminDonations.editGoal('${escapeHtml(String(goal?.id || ''))}')">✏️ Modifier</button>
           </div>
           <div class="goal-amounts">
             <span class="goal-current">${current.toFixed(2)} €</span>
@@ -191,8 +192,8 @@ class AdminDonations {
               </div>
             </div>
             <div class="subgoal-actions">
-              <button class="admin-btn-sm" onclick="adminDonations.editGoal(${g.id})">✏️</button>
-              <button class="admin-btn-danger" onclick="adminDonations.deleteGoal(${g.id})">🗑️</button>
+              <button class="admin-btn-sm" onclick="adminDonations.editGoal('${g.id}')">✏️</button>
+              <button class="admin-btn-danger" onclick="adminDonations.deleteGoal('${g.id}')">🗑️</button>
             </div>
           </div>
         `;
@@ -288,12 +289,12 @@ class AdminDonations {
         created_at: new Date().toISOString()
       });
 
-      // Met à jour current_amount dans subgoals id=1
-      const { data: goal } = await sb.from('subgoals').select('current_amount').eq('id', 1).single();
+      // Met à jour current_amount dans le premier subgoal
+      const { data: goal } = await sb.from('subgoals').select('id, current_amount').order('created_at', { ascending: true }).limit(1).single();
       if (goal) {
         await sb.from('subgoals').update({
           current_amount: (goal.current_amount || 0) + amount
-        }).eq('id', 1);
+        }).eq('id', goal.id);
       }
 
       if (amountEl) amountEl.value = '';
@@ -440,7 +441,7 @@ apikey: [TA_CLE_ANON]
   _createTableSQL() {
     return `-- Table sous-objectifs
 CREATE TABLE IF NOT EXISTS subgoals (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL DEFAULT 'Objectif',
   description TEXT,
   icon TEXT DEFAULT '🎯',
@@ -449,10 +450,10 @@ CREATE TABLE IF NOT EXISTS subgoals (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Objectif principal (id=1)
-INSERT INTO subgoals (id, title, description, target_amount, current_amount, icon)
-VALUES (1, 'Objectif annuel', 'Frais de serveur et fonctionnement', 500, 0, '🚀')
-ON CONFLICT (id) DO NOTHING;
+-- Objectif principal
+INSERT INTO subgoals (title, description, target_amount, current_amount, icon)
+SELECT 'Objectif annuel', 'Frais de serveur et fonctionnement', 500, 0, '🚀'
+WHERE NOT EXISTS (SELECT 1 FROM subgoals LIMIT 1);
 
 -- Table historique des dons
 CREATE TABLE IF NOT EXISTS donations (
@@ -466,13 +467,10 @@ CREATE TABLE IF NOT EXISTS donations (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- RLS (sécurité)
+-- RLS
 ALTER TABLE subgoals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE donations ENABLE ROW LEVEL SECURITY;
-
--- Lecture publique pour afficher la barre de progression
 CREATE POLICY "subgoals_read" ON subgoals FOR SELECT USING (true);
--- Écriture admin uniquement (via service_role depuis Zapier/webhook)
 CREATE POLICY "donations_read" ON donations FOR SELECT USING (true);`;
   }
 }

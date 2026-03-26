@@ -162,7 +162,8 @@ class AdminUsers {
       const row = document.getElementById('user-row-' + userId);
       if (row) {
         row.classList.remove('row-banned');
-        row.querySelector('.user-actions').innerHTML = `<button class="admin-btn-danger" onclick="adminUsers.banUser('${userId}')">🚫 Bannir</button><button class="admin-btn-sm" onclick="adminUsers.viewUserPosts('${userId}', '')">📝 Posts</button>`;
+        const nameEl = row.querySelector('.user-name'); const uname = nameEl ? nameEl.textContent : '';
+        row.querySelector('.user-actions').innerHTML = `<button class="admin-btn-danger" onclick="adminUsers.banUser('${userId}')">🚫 Bannir</button><button class="admin-btn-sm" onclick="adminUsers.viewUserPosts('${userId}', '${uname.replace(/'/g, '')}')">📝 Posts</button>`;
         const statusEl = row.querySelector('[class^="status"]');
         if (statusEl) statusEl.outerHTML = '<span class="status-active">✅ Actif</span>';
       }
