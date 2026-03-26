@@ -80,6 +80,8 @@ async function onLogin(user) {
   // ✅ Fix : un seul bloc admin, checkAdminStatus attendu avant renderAdminDashboard
   if (typeof adminPanel !== 'undefined') {
     await adminPanel.checkAdminStatus(user.id);
+    // Affiche le bouton admin dans le menu si admin
+    if (typeof refreshAdminButton === 'function') refreshAdminButton();
     if (window.location.hash === '#admin') adminPanel.renderAdminDashboard();
   }
 }
@@ -287,17 +289,19 @@ async function submitPost() {
   const type = document.getElementById('post-type').value;
   const anonymous = document.getElementById('post-anon').value === 'true';
   if (content.length < 15) { showToast('✏️ Message trop court (min. 15 car.).', 'error'); return; }
-  if (isToxic(content)) {
-    showToast('🛡️ Message bloqué : contenu inapproprié. Reste bienveillant(e) 💛', 'error');
-    await incrementReportCount(currentUser.id, 1);
-    return;
-  }
-  if (!sb) { addDemoPost({ content, type, anonymous }); showToast('✅ Publié ! (mode démo)', 'success'); document.getElementById('post-content').value = ''; updateWriteChars(); showPage('home'); return; }
+
+  // ── Modération Grok ──
+  const moderation = await moderateBeforePost(content);
+  if (!moderation.allowed) return;
+  const cleanedContent = moderation.cleanedText;
+  // ────────────────────
+
+  if (!sb) { addDemoPost({ content: cleanedContent, type, anonymous }); showToast('✅ Publié ! (mode démo)', 'success'); document.getElementById('post-content').value = ''; updateWriteChars(); showPage('home'); return; }
 
   const { error } = await sb.from('posts').insert({
     user_id: currentUser.id,
     display_name: currentProfile?.display_name || 'Anonyme',
-    content, type, anonymous, approved: true,
+    content: cleanedContent, type, anonymous, approved: true,
     reactions: { '❤️': 0, '🤗': 0, '✨': 0, '🙏': 0, '💪': 0 },
     reaction_total: 0, reply_count: 0, report_count: 0,
     created_at: new Date().toISOString()

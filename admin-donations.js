@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
-// Admin Dons & Objectifs — ResteIci
-// Page dédiée : subgoals PayPal + historique des dons
+// Admin Dons & Objectifs — ResteIci v2
+// Page dédiée : subgoals + historique des dons + widget public
 // ═══════════════════════════════════════════════════════════════
 
 class AdminDonations {
@@ -11,39 +11,84 @@ class AdminDonations {
       <div class="admin-page">
         <div class="admin-page-header">
           <h1>💰 Dons & Objectifs</h1>
-          <button class="admin-btn-sm" onclick="adminDonations.render(document.getElementById('admin-page-content'))">🔄 Rafraîchir</button>
+          <div class="admin-header-actions">
+            <button class="admin-btn-sm" onclick="adminDonations.render(document.getElementById('admin-page-content'))">🔄 Rafraîchir</button>
+            <button class="admin-btn" onclick="adminDonations.openCreateGoal()">+ Nouvel objectif</button>
+          </div>
         </div>
 
-        <!-- Objectif principal -->
-        <div class="goal-card" id="main-goal-card">
+        <div class="admin-info-box">
+          💡 Les objectifs configurés ici s'affichent automatiquement sur la page d'accueil dans le widget "Nos objectifs". 
+          Utilisez le bouton <strong>"Copier le widget"</strong> ci-dessous pour l'intégrer sur d'autres pages.
+        </div>
+
+        <!-- Vue d'ensemble des dons -->
+        <div class="don-overview" id="don-overview">
           <div class="admin-loading">Chargement…</div>
         </div>
 
-        <!-- Liste des sous-objectifs -->
+        <!-- Sous-objectifs -->
         <div class="admin-section">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <h3>🎯 Sous-objectifs</h3>
-            <button class="admin-btn" onclick="adminDonations.openCreateGoal()">+ Nouvel objectif</button>
+          <div class="admin-section-header">
+            <h3>🎯 Sous-objectifs de la campagne</h3>
+            <div style="display:flex;gap:8px">
+              <button class="admin-btn-sm" onclick="adminDonations._copyWidgetCode()">📋 Copier le widget HTML</button>
+              <button class="admin-btn" onclick="adminDonations.openCreateGoal()">+ Ajouter</button>
+            </div>
           </div>
           <div id="subgoals-list"><div class="admin-loading">Chargement…</div></div>
         </div>
 
-        <!-- Historique des dons -->
+        <!-- Ajout manuel de don -->
         <div class="admin-section">
-          <h3>📋 Historique des dons</h3>
+          <div class="admin-section-header">
+            <h3>➕ Enregistrer un don manuel</h3>
+          </div>
+          <div class="manual-don-form">
+            <div class="form-row-admin" style="align-items:end;gap:10px">
+              <div class="form-group-admin" style="flex:1">
+                <label>Montant (€)</label>
+                <input class="admin-input" id="manual-amount" type="number" step="0.01" min="0.01" placeholder="Ex: 10.00">
+              </div>
+              <div class="form-group-admin" style="flex:2">
+                <label>Nom du donateur</label>
+                <input class="admin-input" id="manual-donor" placeholder="Ex: Marie D. (optionnel)">
+              </div>
+              <div class="form-group-admin" style="flex:2">
+                <label>Note</label>
+                <input class="admin-input" id="manual-note" placeholder="Ex: don de mariage">
+              </div>
+              <div class="form-group-admin" style="flex:1.5">
+                <label>Objectif ciblé</label>
+                <select class="admin-select" id="manual-goal" style="width:100%">
+                  <option value="">Principal (1er)</option>
+                </select>
+              </div>
+              <div class="form-group-admin">
+                <label>&nbsp;</label>
+                <button class="admin-btn" onclick="adminDonations.manualAddDonation()">+ Enregistrer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Historique -->
+        <div class="admin-section">
+          <div class="admin-section-header">
+            <h3>📋 Historique des dons</h3>
+            <button class="admin-btn-sm" onclick="adminDonations._exportDonationsCSV()">📤 Export CSV</button>
+          </div>
           <div id="donations-history"><div class="admin-loading">Chargement…</div></div>
         </div>
 
-        <!-- Webhook PayPal -->
+        <!-- Webhook config -->
         <div class="admin-section">
-          <h3>🔗 Configuration Webhook PayPal</h3>
-          <div class="webhook-info">
-            ${this._webhookConfigHTML()}
-          </div>
+          <div class="admin-section-header"><h3>🔗 Configuration Webhook PayPal</h3></div>
+          <div class="webhook-info">${this._webhookConfigHTML()}</div>
         </div>
       </div>
 
-      <!-- Modal création objectif -->
+      <!-- Modal objectif -->
       <div id="goal-modal-overlay" class="up-modal-overlay">
         <div class="up-modal">
           <div class="up-modal-header">
@@ -57,7 +102,7 @@ class AdminDonations {
             </div>
             <div class="form-group-admin">
               <label>Description</label>
-              <input class="admin-input" id="goal-desc" placeholder="Une courte description…">
+              <input class="admin-input" id="goal-desc" placeholder="Courte description de l'objectif…">
             </div>
             <div class="form-row-admin">
               <div class="form-group-admin">
@@ -69,9 +114,15 @@ class AdminDonations {
                 <input class="admin-input" id="goal-current" type="number" min="0" placeholder="0">
               </div>
             </div>
-            <div class="form-group-admin">
-              <label>Icône (emoji)</label>
-              <input class="admin-input" id="goal-icon" placeholder="💻" maxlength="4" style="max-width:80px">
+            <div class="form-row-admin">
+              <div class="form-group-admin">
+                <label>Icône (emoji)</label>
+                <input class="admin-input" id="goal-icon" placeholder="💻" maxlength="4">
+              </div>
+              <div class="form-group-admin">
+                <label>Ordre d'affichage</label>
+                <input class="admin-input" id="goal-order" type="number" min="1" placeholder="1">
+              </div>
             </div>
             <input type="hidden" id="goal-edit-id">
             <div style="display:flex;gap:10px;margin-top:16px">
@@ -83,615 +134,438 @@ class AdminDonations {
       </div>
     `;
 
+    // Charger les subgoals dans le select manuel
+    this._loadGoalSelect();
+
     await Promise.all([
-      this.loadMainGoal(),
+      this.loadOverview(),
       this.loadSubgoals(),
-      this.loadDonationHistory()
+      this.loadDonationHistory(),
     ]);
   }
 
-  // ── Objectif principal ────────────────────────────────────────
-  async loadMainGoal() {
+  // ── Vue d'ensemble ─────────────────────────────────────────────
+  async loadOverview() {
     const sb = adminPanel.sb;
-    const card = document.getElementById('main-goal-card');
-    if (!card) return;
-
+    const el = document.getElementById('don-overview');
+    if (!el) return;
     try {
-      // Somme de tous les dons reçus
-      const { data: history } = await sb
-        .from('donations')
-        .select('amount')
-        .eq('status', 'completed');
+      const [donationsR, subgoalsR] = await Promise.all([
+        sb.from('donations').select('amount, created_at, status').eq('status', 'completed'),
+        sb.from('subgoals').select('target_amount, current_amount').order('created_at', { ascending: true }),
+      ]);
 
-      const total = (history || []).reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+      const dons = donationsR.data || [];
+      const goals = subgoalsR.data || [];
 
-      // Récupère le premier objectif (objectif principal)
-      const { data: goal } = await sb
-        .from('subgoals')
-        .select('*')
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single();
+      const totalRec   = dons.reduce((s, d) => s + parseFloat(d.amount || 0), 0);
+      const totalGoal  = goals.reduce((s, g) => s + parseFloat(g.target_amount || 0), 0);
+      const totalCur   = goals.reduce((s, g) => s + parseFloat(g.current_amount || 0), 0);
+      const globalPct  = totalGoal ? Math.min(100, Math.round((totalCur / totalGoal) * 100)) : 0;
 
-      const target = goal?.target_amount || 500;
-      const current = goal?.current_amount || total;
-      const pct = Math.min(100, Math.round((current / target) * 100));
+      // Dons du mois en cours
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const monthDons = dons.filter(d => d.created_at >= monthStart);
+      const monthTotal = monthDons.reduce((s, d) => s + parseFloat(d.amount || 0), 0);
 
-      card.innerHTML = `
-        <div class="main-goal-inner">
-          <div class="goal-main-header">
-            <div>
-              <div class="goal-main-title">${escapeHtml(goal?.title || 'Objectif annuel')}</div>
-              <div class="goal-main-desc">${escapeHtml(goal?.description || 'Frais de serveur et de fonctionnement')}</div>
+      el.innerHTML = `
+        <div class="don-overview-inner">
+          <div class="don-kpi-grid">
+            <div class="don-kpi">
+              <div class="don-kpi-icon">💰</div>
+              <div class="don-kpi-val">${totalRec.toFixed(2)} €</div>
+              <div class="don-kpi-label">Total reçu</div>
             </div>
-            <button class="admin-btn-sm" onclick="adminDonations.editGoal('${escapeHtml(String(goal?.id || ''))}')">✏️ Modifier</button>
+            <div class="don-kpi">
+              <div class="don-kpi-icon">📅</div>
+              <div class="don-kpi-val">${monthTotal.toFixed(2)} €</div>
+              <div class="don-kpi-label">Ce mois-ci</div>
+            </div>
+            <div class="don-kpi">
+              <div class="don-kpi-icon">🎁</div>
+              <div class="don-kpi-val">${dons.length}</div>
+              <div class="don-kpi-label">Dons reçus</div>
+            </div>
+            <div class="don-kpi">
+              <div class="don-kpi-icon">🎯</div>
+              <div class="don-kpi-val">${globalPct}%</div>
+              <div class="don-kpi-label">Progression globale</div>
+            </div>
           </div>
-          <div class="goal-amounts">
-            <span class="goal-current">${current.toFixed(2)} €</span>
-            <span class="goal-sep">sur</span>
-            <span class="goal-target">${target} €</span>
-            <span class="goal-pct">(${pct}%)</span>
-          </div>
-          <div class="goal-bar-wrap">
-            <div class="goal-bar-fill" style="width: ${pct}%"></div>
-          </div>
-          <div class="goal-manual-update">
-            <input class="admin-input" id="manual-amount-input" type="number" step="0.01" placeholder="Montant reçu (€)" style="max-width:180px">
-            <button class="admin-btn-sm" onclick="adminDonations.manualAddDonation()">+ Ajouter don manuel</button>
+          <div style="margin-top:14px">
+            <div style="display:flex;justify-content:space-between;font-size:.78rem;color:var(--text3);margin-bottom:6px">
+              <span>Progression globale de la campagne</span>
+              <span>${totalCur.toFixed(2)} € / ${totalGoal.toFixed(2)} €</span>
+            </div>
+            <div class="goal-bar-wrap"><div class="goal-bar-fill" style="width:${globalPct}%"></div></div>
           </div>
         </div>
       `;
-
-    } catch (err) {
-      card.innerHTML = `
-        <div class="main-goal-inner">
-          <p class="admin-error">❌ Impossible de charger l'objectif principal. Vérifie que la table <code>subgoals</code> et <code>donations</code> existent dans Supabase.</p>
-          <details class="sql-hint">
-            <summary>📋 SQL pour créer les tables</summary>
-            <pre>${this._createTableSQL()}</pre>
-          </details>
-        </div>
-      `;
+    } catch {
+      el.innerHTML = '<div class="admin-error">❌ Erreur lors du chargement de l\'aperçu.</div>';
     }
   }
 
-  // ── Sous-objectifs ────────────────────────────────────────────
+  // ── Sous-objectifs ─────────────────────────────────────────────
   async loadSubgoals() {
     const sb = adminPanel.sb;
     const container = document.getElementById('subgoals-list');
     if (!container) return;
-
     try {
-      const { data: goals, error } = await sb
-        .from('subgoals')
-        .select('*')
-        .order('id', { ascending: true });
-
+      const { data: goals, error } = await sb.from('subgoals').select('*').order('id', { ascending: true });
       if (error) throw error;
 
-      if (!goals || goals.length === 0) {
-        container.innerHTML = '<div class="admin-empty">Aucun sous-objectif. Crée-en un !</div>';
+      if (!goals || !goals.length) {
+        container.innerHTML = '<div class="admin-empty">Aucun sous-objectif. Crée-en un avec le bouton "Ajouter" !</div>';
         return;
       }
 
       container.innerHTML = goals.map(g => {
-        const pct = Math.min(100, Math.round(((g.current_amount || 0) / (g.target_amount || 1)) * 100));
+        const cur = parseFloat(g.current_amount || 0);
+        const tar = parseFloat(g.target_amount || 1);
+        const pct = Math.min(100, Math.round((cur / tar) * 100));
         const done = pct >= 100;
         return `
-          <div class="subgoal-card ${done ? 'goal-done' : ''}">
-            <div class="subgoal-icon">${g.icon || '🎯'}</div>
+          <div class="subgoal-card ${done ? 'goal-done' : ''}" id="sg-${g.id}">
+            <div class="subgoal-icon">${escapeHtml(g.icon || '🎯')}</div>
             <div class="subgoal-body">
-              <div class="subgoal-title">${escapeHtml(g.title || 'Objectif')}</div>
+              <div class="subgoal-header-row">
+                <div class="subgoal-title">${escapeHtml(g.title || 'Objectif')}</div>
+                ${done ? '<span class="done-badge">✅ Atteint !</span>' : ''}
+              </div>
               <div class="subgoal-desc">${escapeHtml(g.description || '')}</div>
               <div class="subgoal-bar-wrap">
-                <div class="subgoal-bar-fill" style="width:${pct}%"></div>
+                <div class="subgoal-bar-fill" style="width:${pct}%;${done ? 'background:var(--green)' : ''}"></div>
               </div>
               <div class="subgoal-amounts">
-                ${(g.current_amount || 0).toFixed(2)} € / ${g.target_amount || 0} € — ${pct}%
-                ${done ? ' <span class="done-badge">✅ Atteint !</span>' : ''}
+                <strong style="color:${done ? 'var(--green)' : 'var(--accent)'}">${cur.toFixed(2)} €</strong>
+                <span>/ ${tar.toFixed(2)} € — ${pct}%</span>
+              </div>
+              <!-- Mise à jour rapide -->
+              <div class="subgoal-quick-update">
+                <input class="admin-input" id="sq-input-${g.id}" type="number" step="0.01" placeholder="Ajouter € manuellement" style="max-width:160px;font-size:.78rem;padding:5px 9px">
+                <button class="admin-btn-sm" onclick="adminDonations._quickUpdate('${g.id}', ${cur})">+</button>
               </div>
             </div>
             <div class="subgoal-actions">
-              <button class="admin-btn-sm" onclick="adminDonations.editGoal('${g.id}')">✏️</button>
+              <button class="admin-btn-sm" onclick="adminDonations.editGoal('${g.id}')">✏️ Modifier</button>
               <button class="admin-btn-danger" onclick="adminDonations.deleteGoal('${g.id}')">🗑️</button>
             </div>
           </div>
         `;
       }).join('');
-
     } catch (err) {
       container.innerHTML = `
         <div class="admin-error">❌ Table <code>subgoals</code> introuvable.
-          <details class="sql-hint"><summary>Créer la table</summary><pre>${this._createTableSQL()}</pre></details>
+          <button class="admin-btn-sm" style="margin-left:8px" onclick="adminPanel.navigateTo('health')">Voir le SQL requis →</button>
         </div>
       `;
     }
   }
 
-  // ── Historique dons ───────────────────────────────────────────
+  async _quickUpdate(goalId, currentAmount) {
+    const input = document.getElementById(`sq-input-${goalId}`);
+    const add = parseFloat(input?.value || 0);
+    if (!add || add <= 0) { showToast('❌ Montant invalide.', 'error'); return; }
+    const sb = adminPanel.sb;
+    const newAmount = currentAmount + add;
+    await sb.from('subgoals').update({ current_amount: newAmount }).eq('id', goalId);
+    await sb.from('donations').insert({
+      amount: add,
+      donor_name: 'Ajout rapide (admin)',
+      source: 'manual',
+      status: 'completed',
+      note: `Mise à jour rapide objectif`,
+      created_at: new Date().toISOString(),
+    });
+    if (input) input.value = '';
+    showToast(`✅ +${add}€ ajouté à l'objectif.`, 'success');
+    this.loadSubgoals();
+    this.loadOverview();
+  }
+
+  // ── Historique dons ────────────────────────────────────────────
   async loadDonationHistory() {
     const sb = adminPanel.sb;
     const container = document.getElementById('donations-history');
     if (!container) return;
-
     try {
       const { data: donations, error } = await sb
-        .from('donations')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
-
+        .from('donations').select('*').order('created_at', { ascending: false }).limit(30);
       if (error) throw error;
 
-      if (!donations || donations.length === 0) {
-        container.innerHTML = '<div class="admin-empty">Aucun don enregistré pour le moment.</div>';
+      if (!donations || !donations.length) {
+        container.innerHTML = '<div class="admin-empty">Aucun don enregistré.</div>';
         return;
       }
 
-      const total = donations.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
-
+      const total = donations.reduce((s, d) => s + parseFloat(d.amount || 0), 0);
       container.innerHTML = `
-        <div class="donations-total">Total reçu (20 derniers) : <strong>${total.toFixed(2)} €</strong></div>
+        <div class="donations-total">Total affiché (30 derniers) : <strong style="color:var(--green)">${total.toFixed(2)} €</strong></div>
         <div class="donations-table-wrap">
           <table class="users-table">
             <thead>
-              <tr>
-                <th>Date</th>
-                <th>Montant</th>
-                <th>Donateur</th>
-                <th>Source</th>
-                <th>Statut</th>
-                <th>Note</th>
-              </tr>
+              <tr><th>Date</th><th>Montant</th><th>Donateur</th><th>Source</th><th>Statut</th><th>Note</th><th></th></tr>
             </thead>
             <tbody>
               ${donations.map(d => `
-                <tr>
+                <tr id="don-${d.id}">
                   <td class="user-date">${formatTime(d.created_at)}</td>
                   <td><strong style="color:var(--green)">${parseFloat(d.amount || 0).toFixed(2)} €</strong></td>
                   <td>${escapeHtml(d.donor_name || 'Anonyme')}</td>
                   <td><span class="source-badge source-${d.source || 'manual'}">${d.source || 'manuel'}</span></td>
                   <td><span class="${d.status === 'completed' ? 'status-active' : 'status-banned'}">${d.status || '?'}</span></td>
                   <td class="user-email">${escapeHtml(d.note || '—')}</td>
+                  <td><button class="admin-btn-icon" onclick="adminDonations._deleteDon('${d.id}')">🗑️</button></td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
         </div>
       `;
-
-    } catch (err) {
-      container.innerHTML = `
-        <div class="admin-error">❌ Table <code>donations</code> introuvable.
-          <details class="sql-hint"><summary>Créer la table</summary><pre>${this._createTableSQL()}</pre></details>
-        </div>
-      `;
+    } catch {
+      container.innerHTML = '<div class="admin-error">❌ Table <code>donations</code> introuvable.</div>';
     }
   }
 
-  // ── Ajout manuel d'un don ─────────────────────────────────────
-  async manualAddDonation() {
-    const amountEl = document.getElementById('manual-amount-input');
-    const amount = parseFloat(amountEl?.value || 0);
-    if (!amount || amount <= 0) {
-      showToast('❌ Montant invalide.', 'error');
-      return;
-    }
+  async _deleteDon(id) {
+    if (!confirm('Supprimer ce don de l\'historique ?')) return;
+    await adminPanel.sb.from('donations').delete().eq('id', id);
+    document.getElementById(`don-${id}`)?.remove();
+    showToast('🗑️ Don supprimé.', 'success');
+    this.loadOverview();
+  }
 
+  async _exportDonationsCSV() {
+    const { data } = await adminPanel.sb.from('donations').select('*').order('created_at', { ascending: false });
+    const rows = [['Date','Montant','Donateur','Source','Statut','Note','Transaction ID']];
+    (data || []).forEach(d => rows.push([d.created_at, d.amount, d.donor_name || 'Anonyme', d.source || '', d.status || '', d.note || '', d.paypal_transaction_id || '']));
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `resteici-dons-${Date.now()}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    showToast('📤 Export CSV généré.', 'success');
+  }
+
+  // ── Don manuel ─────────────────────────────────────────────────
+  async manualAddDonation() {
+    const amount   = parseFloat(document.getElementById('manual-amount')?.value || 0);
+    const donor    = document.getElementById('manual-donor')?.value.trim() || 'Administrateur';
+    const note     = document.getElementById('manual-note')?.value.trim() || 'Ajouté manuellement';
+    const goalId   = document.getElementById('manual-goal')?.value || '';
+
+    if (!amount || amount <= 0) { showToast('❌ Montant invalide.', 'error'); return; }
     const sb = adminPanel.sb;
     try {
       await sb.from('donations').insert({
-        amount,
-        donor_name: 'Administrateur',
-        source: 'manual',
-        status: 'completed',
-        note: 'Ajouté manuellement via admin',
-        created_at: new Date().toISOString()
+        amount, donor_name: donor, source: 'manual', status: 'completed',
+        note, created_at: new Date().toISOString(),
       });
 
-      // Met à jour current_amount dans le premier subgoal
-      const { data: goal } = await sb.from('subgoals').select('id, current_amount').order('created_at', { ascending: true }).limit(1).single();
+      // Mettre à jour l'objectif ciblé ou le 1er
+      let q = sb.from('subgoals').select('id, current_amount').order('created_at', { ascending: true }).limit(1);
+      if (goalId) q = sb.from('subgoals').select('id, current_amount').eq('id', goalId).limit(1);
+      const { data: goals } = await q;
+      const goal = goals?.[0];
       if (goal) {
-        await sb.from('subgoals').update({
-          current_amount: (goal.current_amount || 0) + amount
-        }).eq('id', goal.id);
+        await sb.from('subgoals').update({ current_amount: (goal.current_amount || 0) + amount }).eq('id', goal.id);
       }
 
-      if (amountEl) amountEl.value = '';
-      showToast(`✅ Don de ${amount} € ajouté !`, 'success');
-      this.loadMainGoal();
+      document.getElementById('manual-amount').value = '';
+      document.getElementById('manual-donor').value = '';
+      document.getElementById('manual-note').value = '';
+      showToast(`✅ Don de ${amount.toFixed(2)} € enregistré !`, 'success');
+      this.loadOverview();
+      this.loadSubgoals();
       this.loadDonationHistory();
-    } catch (err) {
-      showToast('❌ Erreur : ' + err.message, 'error');
-    }
+    } catch (err) { showToast('❌ Erreur : ' + err.message, 'error'); }
   }
 
-  // ── Création / édition d'objectif ─────────────────────────────
+  // ── Select objectifs ───────────────────────────────────────────
+  async _loadGoalSelect() {
+    const sel = document.getElementById('manual-goal');
+    if (!sel) return;
+    try {
+      const { data } = await adminPanel.sb.from('subgoals').select('id, title').order('created_at', { ascending: true });
+      (data || []).forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id; opt.textContent = g.title || 'Objectif';
+        sel.appendChild(opt);
+      });
+    } catch {}
+  }
+
+  // ── CRUD objectifs ─────────────────────────────────────────────
   openCreateGoal() {
     document.getElementById('goal-modal-title').textContent = 'Nouvel objectif';
-    document.getElementById('goal-title').value = '';
-    document.getElementById('goal-desc').value = '';
+    ['goal-title','goal-desc','goal-icon'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('goal-target').value = '';
     document.getElementById('goal-current').value = '0';
     document.getElementById('goal-icon').value = '🎯';
+    document.getElementById('goal-order').value = '1';
     document.getElementById('goal-edit-id').value = '';
     document.getElementById('goal-modal-overlay').style.display = 'flex';
   }
 
   async editGoal(id) {
-    const sb = adminPanel.sb;
-    const { data: g } = await sb.from('subgoals').select('*').eq('id', id).single();
+    const { data: g } = await adminPanel.sb.from('subgoals').select('*').eq('id', id).single();
     if (!g) { showToast('❌ Objectif introuvable.', 'error'); return; }
-
     document.getElementById('goal-modal-title').textContent = 'Modifier l\'objectif';
-    document.getElementById('goal-title').value = g.title || '';
-    document.getElementById('goal-desc').value = g.description || '';
-    document.getElementById('goal-target').value = g.target_amount || '';
+    document.getElementById('goal-title').value   = g.title || '';
+    document.getElementById('goal-desc').value    = g.description || '';
+    document.getElementById('goal-target').value  = g.target_amount || '';
     document.getElementById('goal-current').value = g.current_amount || 0;
-    document.getElementById('goal-icon').value = g.icon || '🎯';
+    document.getElementById('goal-icon').value    = g.icon || '🎯';
+    document.getElementById('goal-order').value   = g.display_order || 1;
     document.getElementById('goal-edit-id').value = id;
     document.getElementById('goal-modal-overlay').style.display = 'flex';
   }
 
   async saveGoal() {
-    const sb = adminPanel.sb;
     const id = document.getElementById('goal-edit-id').value;
-    const data = {
-      title: document.getElementById('goal-title').value.trim(),
-      description: document.getElementById('goal-desc').value.trim(),
-      target_amount: parseFloat(document.getElementById('goal-target').value) || 0,
+    const payload = {
+      title:          document.getElementById('goal-title').value.trim(),
+      description:    document.getElementById('goal-desc').value.trim(),
+      target_amount:  parseFloat(document.getElementById('goal-target').value) || 0,
       current_amount: parseFloat(document.getElementById('goal-current').value) || 0,
-      icon: document.getElementById('goal-icon').value.trim() || '🎯',
+      icon:           document.getElementById('goal-icon').value.trim() || '🎯',
     };
-
-    if (!data.title || !data.target_amount) {
-      showToast('❌ Titre et objectif requis.', 'error');
-      return;
-    }
-
+    if (!payload.title || !payload.target_amount) { showToast('❌ Titre et objectif requis.', 'error'); return; }
     try {
       if (id) {
-        await sb.from('subgoals').update(data).eq('id', parseInt(id));
+        await adminPanel.sb.from('subgoals').update(payload).eq('id', id);
         showToast('✅ Objectif mis à jour.', 'success');
       } else {
-        await sb.from('subgoals').insert(data);
+        payload.created_at = new Date().toISOString();
+        await adminPanel.sb.from('subgoals').insert(payload);
         showToast('✅ Objectif créé !', 'success');
       }
       this.closeGoalModal();
       this.loadSubgoals();
-      this.loadMainGoal();
-    } catch (err) {
-      showToast('❌ Erreur : ' + err.message, 'error');
-    }
+      this.loadOverview();
+    } catch (err) { showToast('❌ Erreur : ' + err.message, 'error'); }
   }
 
   async deleteGoal(id) {
     if (!confirm('Supprimer cet objectif ?')) return;
     await adminPanel.sb.from('subgoals').delete().eq('id', id);
+    document.getElementById(`sg-${id}`)?.remove();
     showToast('🗑️ Objectif supprimé.', 'success');
-    this.loadSubgoals();
+    this.loadOverview();
   }
 
   closeGoalModal() {
     document.getElementById('goal-modal-overlay').style.display = 'none';
   }
 
-  // ── HTML config webhook ───────────────────────────────────────
+  // ── Code widget HTML à copier ──────────────────────────────────
+  _copyWidgetCode() {
+    const code = `<!-- Widget Objectifs ResteIci — à placer où tu veux sur le site -->
+<div id="resteici-goals-widget"></div>
+<script src="subgoals-widget.js"><\/script>`;
+    navigator.clipboard.writeText(code)
+      .then(() => showToast('✅ Code du widget copié !', 'success'))
+      .catch(() => showToast('❌ Copie impossible. Copie manuellement.', 'error'));
+  }
+
+  // ── Webhook config ─────────────────────────────────────────────
   _webhookConfigHTML() {
     return `
       <div class="webhook-steps">
-        <p style="color:var(--text2);font-size:0.875rem;margin-bottom:16px">
+        <p style="color:var(--text2);font-size:.875rem;margin-bottom:16px">
           Le webhook PayPal met à jour automatiquement les objectifs quand un don est reçu.
-          Puisque ResteIci est un site statique hébergé sur Render, utilise <strong>Zapier</strong> comme intermédiaire.
+          Utilise <strong>Zapier</strong> comme intermédiaire (gratuit jusqu'à 100 tâches/mois).
         </p>
-
-        <div class="webhook-step">
-          <div class="step-num">1</div>
-          <div class="step-content">
-            <strong>Crée un compte sur <a href="https://zapier.com" target="_blank" style="color:var(--accent)">zapier.com</a></strong>
-            <p>Gratuit jusqu'à 100 tâches/mois.</p>
-          </div>
-        </div>
-
-        <div class="webhook-step">
-          <div class="step-num">2</div>
-          <div class="step-content">
-            <strong>Crée un Zap :</strong>
-            <ul style="color:var(--text2);font-size:0.85rem;margin-top:6px">
-              <li><strong>Trigger :</strong> PayPal → "New Sale" (connecte ton compte PayPal Business)</li>
-              <li><strong>Action :</strong> Supabase → "Run Query" ou utilise l'action HTTP pour POST vers Supabase</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="webhook-step">
-          <div class="step-num">3</div>
-          <div class="step-content">
-            <strong>Configure l'action Supabase :</strong>
-            <div class="code-block">
-POST https://[TON-PROJET].supabase.co/rest/v1/donations
-Content-Type: application/json
-apikey: [TA_CLE_ANON]
-
-{
-  "amount": "{{amount}}",
-  "donor_name": "{{payer_name}}",
-  "source": "paypal",
-  "status": "completed",
-  "created_at": "{{created_at}}"
-}
+        ${[
+          ['Crée un compte sur <a href="https://zapier.com" target="_blank" style="color:var(--accent)">zapier.com</a>', 'Gratuit jusqu\'à 100 tâches/mois.'],
+          ['Crée un Zap :', 'Trigger: PayPal → "New Sale" | Action: HTTP → POST vers Supabase donations'],
+          ['Configure le POST :', `URL: ${typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : '[SUPABASE_URL]'}/rest/v1/donations\nHeaders: apikey: [TA_CLE_ANON]\nBody: { "amount": "{{amount}}", "donor_name": "{{payer_name}}", "source": "paypal", "status": "completed" }`],
+          ['Active et teste avec un paiement sandbox.', 'Les dons apparaîtront automatiquement dans l\'historique ci-dessus.'],
+        ].map(([title, desc], i) => `
+          <div class="webhook-step">
+            <div class="step-num">${i + 1}</div>
+            <div class="step-content">
+              <strong>${title}</strong>
+              <div class="${i === 2 ? 'code-block' : ''}" style="margin-top:5px;${i !== 2 ? 'color:var(--text2);font-size:.82rem' : ''}">${desc}</div>
             </div>
           </div>
-        </div>
-
-        <div class="webhook-step">
-          <div class="step-num">4</div>
-          <div class="step-content">
-            <strong>Active le Zap et teste avec un paiement PayPal sandbox.</strong>
-            <p style="color:var(--text2);font-size:0.85rem;margin-top:4px">
-              Les dons apparaîtront automatiquement dans l'historique ci-dessus et mettront à jour les objectifs.
-            </p>
-          </div>
-        </div>
+        `).join('')}
       </div>
     `;
-  }
-
-  // ── SQL pour créer les tables ─────────────────────────────────
-  _createTableSQL() {
-    return `-- Table sous-objectifs
-CREATE TABLE IF NOT EXISTS subgoals (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL DEFAULT 'Objectif',
-  description TEXT,
-  icon TEXT DEFAULT '🎯',
-  target_amount NUMERIC(10,2) DEFAULT 100,
-  current_amount NUMERIC(10,2) DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Objectif principal
-INSERT INTO subgoals (title, description, target_amount, current_amount, icon)
-SELECT 'Objectif annuel', 'Frais de serveur et fonctionnement', 500, 0, '🚀'
-WHERE NOT EXISTS (SELECT 1 FROM subgoals LIMIT 1);
-
--- Table historique des dons
-CREATE TABLE IF NOT EXISTS donations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  amount NUMERIC(10,2) NOT NULL,
-  donor_name TEXT DEFAULT 'Anonyme',
-  source TEXT DEFAULT 'manual',
-  status TEXT DEFAULT 'completed',
-  note TEXT,
-  paypal_transaction_id TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- RLS
-ALTER TABLE subgoals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE donations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "subgoals_read" ON subgoals FOR SELECT USING (true);
-CREATE POLICY "donations_read" ON donations FOR SELECT USING (true);`;
   }
 }
 
 // ── CSS Donations ──────────────────────────────────────────────
 const styleDons = document.createElement('style');
 styleDons.textContent = `
-.goal-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 8px;
-  overflow: hidden;
-}
+/* Overview */
+.don-overview { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin-bottom:16px; overflow:hidden; }
+.don-overview-inner { padding:22px 24px; }
+.don-kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+.don-kpi { background:var(--surface2); border-radius:10px; padding:14px; text-align:center; }
+.don-kpi-icon { font-size:1.4rem; margin-bottom:6px; }
+.don-kpi-val  { font-family:var(--font-display); font-size:1.5rem; font-weight:700; color:var(--accent); margin-bottom:2px; }
+.don-kpi-label { font-size:.68rem; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
 
-.main-goal-inner {
-  padding: 24px 28px;
-}
+/* Goal bars */
+.goal-bar-wrap { height:10px; background:var(--surface2); border-radius:10px; overflow:hidden; }
+.goal-bar-fill { height:100%; background:linear-gradient(90deg,var(--accent),#e8c06a); border-radius:10px; transition:width .6s cubic-bezier(.34,1.56,.64,1); }
 
-.goal-main-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
+/* Subgoal cards */
+.subgoal-card { display:flex; align-items:flex-start; gap:14px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:10px; transition:border-color .2s; }
+.subgoal-card:hover { border-color:var(--border2); }
+.subgoal-card.goal-done { border-color:rgba(109,232,160,.3); background:rgba(109,232,160,.03); }
+.subgoal-icon { font-size:2rem; flex-shrink:0; margin-top:2px; }
+.subgoal-body { flex:1; min-width:0; }
+.subgoal-header-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap; }
+.subgoal-title { font-weight:600; color:var(--text); font-size:.9rem; }
+.done-badge { background:rgba(109,232,160,.15); color:var(--green); font-size:.68rem; padding:2px 8px; border-radius:20px; font-weight:700; }
+.subgoal-desc { font-size:.78rem; color:var(--text3); margin-bottom:10px; }
+.subgoal-bar-wrap { height:6px; background:var(--surface2); border-radius:6px; overflow:hidden; margin-bottom:6px; }
+.subgoal-bar-fill { height:100%; background:var(--accent); border-radius:6px; transition:width .5s; }
+.subgoal-amounts { font-size:.78rem; color:var(--text2); margin-bottom:10px; display:flex; gap:6px; align-items:center; }
+.subgoal-quick-update { display:flex; gap:6px; align-items:center; }
+.subgoal-actions { display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
 
-.goal-main-title {
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 4px;
-}
+/* Manual form */
+.manual-don-form { padding:4px 0; }
 
-.goal-main-desc { color: var(--text3); font-size: 0.85rem; }
-
-.goal-amounts {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.goal-current { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
-.goal-sep { color: var(--text3); font-size: 0.9rem; }
-.goal-target { font-size: 1.1rem; color: var(--text2); }
-.goal-pct { font-size: 0.85rem; color: var(--text3); }
-
-.goal-bar-wrap {
-  height: 10px;
-  background: var(--surface2);
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 14px;
-}
-
-.goal-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent), #e8c06a);
-  border-radius: 10px;
-  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.goal-manual-update {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-
-.subgoal-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 18px;
-  margin-bottom: 10px;
-  transition: border-color 0.2s;
-}
-
-.subgoal-card.goal-done { border-color: rgba(114,201,138,0.3); }
-.subgoal-card:hover { border-color: var(--border2); }
-
-.subgoal-icon { font-size: 1.8rem; flex-shrink: 0; }
-
-.subgoal-body { flex: 1; min-width: 0; }
-
-.subgoal-title { font-weight: 600; color: var(--text); margin-bottom: 2px; }
-.subgoal-desc { font-size: 0.8rem; color: var(--text3); margin-bottom: 8px; }
-
-.subgoal-bar-wrap {
-  height: 6px;
-  background: var(--surface2);
-  border-radius: 6px;
-  overflow: hidden;
-  margin-bottom: 4px;
-}
-
-.subgoal-bar-fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 6px;
-  transition: width 0.5s;
-}
-
-.subgoal-amounts { font-size: 0.78rem; color: var(--text3); }
-.done-badge { color: var(--green); font-weight: 600; }
-
-.subgoal-actions { display: flex; gap: 6px; flex-shrink: 0; }
+/* Donations table */
+.donations-total { font-size:.85rem; color:var(--text2); margin-bottom:10px; padding:10px 12px; background:var(--surface2); border-radius:8px; }
+.donations-table-wrap { overflow-x:auto; border-radius:10px; border:1px solid var(--border); }
+.source-badge { padding:2px 8px; border-radius:12px; font-size:.68rem; font-weight:700; text-transform:uppercase; }
+.source-paypal { background:rgba(0,112,186,.15); color:#4da3e0; }
+.source-manual { background:rgba(245,169,107,.15); color:var(--accent); }
 
 /* Webhook */
-.webhook-info {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px 24px;
-}
+.webhook-info { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px 24px; }
+.webhook-steps { display:flex; flex-direction:column; gap:16px; }
+.webhook-step { display:flex; gap:14px; align-items:flex-start; }
+.step-num { width:28px; height:28px; border-radius:50%; background:var(--adim); color:var(--accent); display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:700; flex-shrink:0; margin-top:2px; }
+.step-content strong { color:var(--text); font-size:.875rem; }
+.code-block { background:var(--bg); border-radius:8px; padding:10px 14px; font-size:.72rem; color:var(--blue); font-family:monospace; margin-top:6px; border:1px solid var(--border); white-space:pre-wrap; line-height:1.5; }
 
-.webhook-steps { display: flex; flex-direction: column; gap: 16px; }
+/* Users table shared */
+.users-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.users-table th { background:var(--bg2); padding:10px 12px; text-align:left; font-size:.72rem; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.4px; border-bottom:1px solid var(--border); }
+.users-table td { padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.users-table tr:last-child td { border-bottom:none; }
+.users-table tr:hover td { background:rgba(255,255,255,.02); }
+.user-date  { color:var(--text3); font-size:.75rem; }
+.user-email { color:var(--text3); font-size:.78rem; }
 
-.webhook-step {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-}
+/* Up modal */
+.up-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:2000; display:none; align-items:center; justify-content:center; padding:20px; }
+.up-modal { background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); width:100%; max-width:520px; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; }
+.up-modal-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); font-weight:600; font-size:.95rem; }
+.up-modal-header button { background:none; border:none; color:var(--text3); cursor:pointer; font-size:1rem; }
+.up-modal-body { padding:18px 20px; overflow-y:auto; flex:1; }
 
-.step-num {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent-dim);
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 700;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.step-content strong { color: var(--text); font-size: 0.9rem; }
-.step-content p { color: var(--text2); font-size: 0.82rem; margin-top: 4px; }
-
-.code-block {
-  background: var(--bg);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  font-size: 0.75rem;
-  color: var(--blue);
-  font-family: monospace;
-  margin-top: 8px;
-  border: 1px solid var(--border);
-  white-space: pre-wrap;
-  line-height: 1.5;
-}
-
-.donations-total {
-  font-size: 0.875rem;
-  color: var(--text2);
-  margin-bottom: 12px;
-  padding: 10px 14px;
-  background: var(--surface2);
-  border-radius: var(--radius-sm);
-}
-
-.donations-table-wrap {
-  overflow-x: auto;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-}
-
-.source-badge {
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-.source-paypal { background: rgba(0,112,186,0.15); color: #4da3e0; }
-.source-manual { background: rgba(245,169,107,0.15); color: var(--accent); }
-
-.sql-hint {
-  margin-top: 12px;
-  font-size: 0.82rem;
-  color: var(--text3);
-  cursor: pointer;
-}
-
-.sql-hint pre {
-  background: var(--bg);
-  padding: 12px;
-  border-radius: var(--radius-sm);
-  font-size: 0.72rem;
-  color: var(--blue);
-  overflow-x: auto;
-  margin-top: 8px;
-  border: 1px solid var(--border);
-  white-space: pre-wrap;
-}
-
-.form-group-admin {
-  margin-bottom: 14px;
-}
-.form-group-admin label {
-  display: block;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text3);
-  margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-.form-row-admin {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
+/* Status */
+.status-active { color:var(--green); font-size:.78rem; font-weight:600; }
+.status-banned { color:#e87d7d; font-size:.78rem; font-weight:600; }
 `;
 document.head.appendChild(styleDons);
 

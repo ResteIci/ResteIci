@@ -659,6 +659,7 @@ body::after {
           <button class="dd-item" onclick="showPage('profile');toggleDropdown()">👤 Mon profil</button>
           <button class="dd-item" onclick="requireAuth(()=>showPage('write'));toggleDropdown()">✍️ Écrire</button>
           <div class="dd-sep"></div>
+          <button class="dd-item" id="admin-menu-btn" style="display:none" onclick="adminPanel?.renderAdminDashboard();toggleDropdown()">🔐 Panel Admin</button>
           <button class="dd-item danger" onclick="logout();toggleDropdown()">🚪 Déconnexion</button>
         </div>
       </div>
@@ -980,5 +981,27 @@ const SUPABASE_ANON_KEY = 'sb_publishable_HaVAyH8F0GfdgaZB8QTPRQ_-jXz_MY_';
 </script>
 
 <script src="app.js" defer></script>
+
+<!-- ✅ AJOUTE ICI -->
+<script src="subgoals-widget.js"></script>
+<script src="index-patch.js"></script>
+
+<script>
+// Affiche le bouton admin dans le menu si l'utilisateur est admin
+function refreshAdminButton() {
+  const btn = document.getElementById('admin-menu-btn');
+  if (btn && typeof adminPanel !== 'undefined' && adminPanel?.isAdmin) {
+    btn.style.display = 'block';
+  }
+}
+// Écoute les changements de hash (ex: taper #admin dans l'URL)
+window.addEventListener('hashchange', () => {
+  if (window.location.hash === '#admin') {
+    if (typeof adminPanel !== 'undefined') {
+      adminPanel.renderAdminDashboard();
+    }
+  }
+});
+</script>
 </body>
 </html>
