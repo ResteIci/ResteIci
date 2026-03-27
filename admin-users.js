@@ -3,6 +3,22 @@
 // Page dédiée : liste, recherche, ban, débannissement
 // ═══════════════════════════════════════════════════════════════
 
+// ✅ Fix : helpers locaux robustes
+function _usrEsc(str) {
+  if (typeof escapeHtml === 'function') return escapeHtml(str);
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _usrFmt(d) {
+  if (typeof formatTime === 'function') return formatTime(d);
+  if (!d) return '?';
+  return new Date(d).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+function _usrSb() {
+  if (typeof adminPanel !== 'undefined' && adminPanel?.sb) return adminPanel.sb;
+  if (typeof sb !== 'undefined' && sb) return sb;
+  return null;
+}
+
 class AdminUsers {
   constructor() {
     this.searchQuery = '';
@@ -34,9 +50,10 @@ class AdminUsers {
   }
 
   async loadUsers(page = 0) {
-    const sb = adminPanel.sb;
+    const sb = _usrSb();
     const container = document.getElementById('users-list');
     if (!container) return;
+    if (!sb) { container.innerHTML = '<div class="admin-error">❌ Connexion Supabase non initialisée.</div>'; return; }
 
     try {
       let query = sb
@@ -98,10 +115,10 @@ class AdminUsers {
         <td>
           <div class="user-cell">
             <div class="user-avatar-sm">${initials}</div>
-            <span class="user-name">${escapeHtml(u.display_name || 'Anonyme')}</span>
+            <span class="user-name">${_usrEsc(u.display_name || 'Anonyme')}</span>
           </div>
         </td>
-        <td class="user-email">${escapeHtml(u.email || '—')}</td>
+        <td class="user-email">${_usrEsc(u.email || '—')}</td>
         <td><span class="role-badge ${roleClass}">${roleLabel}</span></td>
         <td>
           <span class="report-count ${u.report_count >= 3 ? 'count-high' : ''}">
@@ -116,8 +133,8 @@ class AdminUsers {
               ? `<button class="admin-btn-sm" onclick="adminUsers.unbanUser('${u.id}')">✅ Débannir</button>`
               : `<button class="admin-btn-danger" onclick="adminUsers.banUser('${u.id}')">🚫 Bannir</button>`
             }
-            <button class="admin-btn-sm" onclick="adminUsers.viewUserPosts('${u.id}', '${escapeHtml(u.display_name || 'Anonyme')}')">📝 Posts</button>
-            ${role !== 'admin' 
+            <button class="admin-btn-sm" data-uid="${u.id}" data-uname="${_usrEsc(u.display_name || 'Anonyme')}" onclick="adminUsers.viewUserPosts(this.dataset.uid, this.dataset.uname)">📝 Posts</button>
+            ${role !== 'admin'
               ? `<button class="admin-btn-sm" onclick="adminUsers.setRole('${u.id}', 'moderator')">🛡️ Modo</button>`
               : ''
             }
@@ -141,8 +158,10 @@ class AdminUsers {
 
   async banUser(userId) {
     if (!confirm('Bannir cet utilisateur ?')) return;
+    const sb = _usrSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
     try {
-      await adminPanel.sb.from('profiles').update({ banned: true }).eq('id', userId);
+      await sb.from('profiles').update({ banned: true }).eq('id', userId);
       const row = document.getElementById('user-row-' + userId);
       if (row) {
         row.classList.add('row-banned');
@@ -157,13 +176,20 @@ class AdminUsers {
   }
 
   async unbanUser(userId) {
+    const sb = _usrSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
     try {
-      await adminPanel.sb.from('profiles').update({ banned: false, report_count: 0 }).eq('id', userId);
+      await sb.from('profiles').update({ banned: false, report_count: 0 }).eq('id', userId);
       const row = document.getElementById('user-row-' + userId);
       if (row) {
         row.classList.remove('row-banned');
-        const nameEl = row.querySelector('.user-name'); const uname = nameEl ? nameEl.textContent : '';
-        row.querySelector('.user-actions').innerHTML = `<button class="admin-btn-danger" onclick="adminUsers.banUser('${userId}')">🚫 Bannir</button><button class="admin-btn-sm" onclick="adminUsers.viewUserPosts('${userId}', '${uname.replace(/'/g, '')}')">📝 Posts</button>`;
+        const nameEl = row.querySelector('.user-name');
+        const uname = nameEl ? nameEl.textContent.trim() : '';
+        const uid = userId;
+        row.querySelector('.user-actions').innerHTML = `
+          <button class="admin-btn-danger" onclick="adminUsers.banUser('${uid}')">🚫 Bannir</button>
+          <button class="admin-btn-sm" data-uid="${uid}" data-uname="${_usrEsc(uname)}" onclick="adminUsers.viewUserPosts(this.dataset.uid, this.dataset.uname)">📝 Posts</button>
+        `;
         const statusEl = row.querySelector('[class^="status"]');
         if (statusEl) statusEl.outerHTML = '<span class="status-active">✅ Actif</span>';
       }
@@ -175,8 +201,10 @@ class AdminUsers {
 
   async setRole(userId, role) {
     if (!confirm(`Passer cet utilisateur en "${role}" ?`)) return;
+    const sb = _usrSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
     try {
-      await adminPanel.sb.from('profiles').update({ admin_role: role }).eq('id', userId);
+      await sb.from('profiles').update({ admin_role: role }).eq('id', userId);
       showToast(`✅ Rôle mis à jour : ${role}.`, 'success');
       this.loadUsers();
     } catch (err) {
@@ -185,7 +213,10 @@ class AdminUsers {
   }
 
   async viewUserPosts(userId, name) {
-    const { data: posts } = await adminPanel.sb
+    const sb = _usrSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
+
+    const { data: posts } = await sb
       .from('posts')
       .select('id, content, type, created_at, approved')
       .eq('user_id', userId)
@@ -197,45 +228,48 @@ class AdminUsers {
       return;
     }
 
-    // Modale inline simple
+    // ✅ Fix : toujours (re)créer la modale proprement pour éviter les états obsolètes
     let modal = document.getElementById('user-posts-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'user-posts-modal';
-      modal.className = 'up-modal-overlay';
-      document.body.appendChild(modal);
-    }
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'user-posts-modal';
+    modal.className = 'up-modal-overlay';
+    modal.style.display = 'flex';
+    document.body.appendChild(modal);
 
     modal.innerHTML = `
       <div class="up-modal">
         <div class="up-modal-header">
-          <span>📝 Posts de ${escapeHtml(name)}</span>
-          <button onclick="document.getElementById('user-posts-modal').style.display='none'">✕</button>
+          <span>📝 Posts de ${_usrEsc(name)}</span>
+          <button onclick="document.getElementById('user-posts-modal').remove()">✕</button>
         </div>
         <div class="up-modal-body">
           ${posts.map(p => `
-            <div class="up-post-item">
+            <div class="up-post-item" id="upost-${p.id}">
               <div class="up-post-meta">
                 <span class="rp-type type-${p.type}">${p.type}</span>
-                <span class="rp-time">${formatTime(p.created_at)}</span>
+                <span class="rp-time">${_usrFmt(p.created_at)}</span>
                 ${!p.approved ? '<span class="status-banned">Non approuvé</span>' : ''}
               </div>
-              <div class="up-post-content">${escapeHtml(p.content)}</div>
+              <div class="up-post-content">${_usrEsc(p.content)}</div>
               <button class="admin-btn-danger" onclick="adminUsers.deleteUserPost('${p.id}')">🗑️ Supprimer</button>
             </div>
           `).join('')}
         </div>
       </div>
     `;
-    modal.style.display = 'flex';
-    modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+
+    // Fermer au clic sur l'overlay
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
   }
 
   async deleteUserPost(postId) {
     if (!confirm('Supprimer ce post ?')) return;
-    await adminPanel.sb.from('posts').delete().eq('id', postId);
+    const sb = _usrSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
+    await sb.from('posts').delete().eq('id', postId);
+    document.getElementById(`upost-${postId}`)?.remove();
     showToast('🗑️ Post supprimé.', 'success');
-    document.getElementById('user-posts-modal').style.display = 'none';
   }
 }
 

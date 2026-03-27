@@ -3,6 +3,22 @@
 // Page dédiée : subgoals + historique des dons + widget public
 // ═══════════════════════════════════════════════════════════════
 
+// ✅ Fix : helpers locaux robustes
+function _donEsc(str) {
+  if (typeof escapeHtml === 'function') return escapeHtml(str);
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _donFmt(d) {
+  if (typeof formatTime === 'function') return formatTime(d);
+  if (!d) return '?';
+  return new Date(d).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+function _donSb() {
+  if (typeof adminPanel !== 'undefined' && adminPanel?.sb) return adminPanel.sb;
+  if (typeof sb !== 'undefined' && sb) return sb;
+  return null;
+}
+
 class AdminDonations {
   constructor() {}
 
@@ -134,21 +150,30 @@ class AdminDonations {
       </div>
     `;
 
-    // Charger les subgoals dans le select manuel
-    this._loadGoalSelect();
+    // ✅ Fix : await sur _loadGoalSelect (était fire-and-forget)
+    await this._loadGoalSelect();
 
     await Promise.all([
       this.loadOverview(),
       this.loadSubgoals(),
       this.loadDonationHistory(),
     ]);
+
+    // ✅ Fix : fermeture de la modale au clic sur l'overlay (manquait)
+    const overlay = document.getElementById('goal-modal-overlay');
+    if (overlay) {
+      overlay.addEventListener('click', e => {
+        if (e.target === overlay) this.closeGoalModal();
+      });
+    }
   }
 
   // ── Vue d'ensemble ─────────────────────────────────────────────
   async loadOverview() {
-    const sb = adminPanel.sb;
+    const sb = _donSb();
     const el = document.getElementById('don-overview');
     if (!el) return;
+    if (!sb) { el.innerHTML = '<div class="admin-error">❌ Connexion Supabase non initialisée.</div>'; return; }
     try {
       const [donationsR, subgoalsR] = await Promise.all([
         sb.from('donations').select('amount, created_at, status').eq('status', 'completed'),
@@ -209,9 +234,10 @@ class AdminDonations {
 
   // ── Sous-objectifs ─────────────────────────────────────────────
   async loadSubgoals() {
-    const sb = adminPanel.sb;
+    const sb = _donSb();
     const container = document.getElementById('subgoals-list');
     if (!container) return;
+    if (!sb) { container.innerHTML = '<div class="admin-error">❌ Connexion non initialisée.</div>'; return; }
     try {
       const { data: goals, error } = await sb.from('subgoals').select('*').order('id', { ascending: true });
       if (error) throw error;
@@ -228,13 +254,13 @@ class AdminDonations {
         const done = pct >= 100;
         return `
           <div class="subgoal-card ${done ? 'goal-done' : ''}" id="sg-${g.id}">
-            <div class="subgoal-icon">${escapeHtml(g.icon || '🎯')}</div>
+            <div class="subgoal-icon">${_donEsc(g.icon || '🎯')}</div>
             <div class="subgoal-body">
               <div class="subgoal-header-row">
-                <div class="subgoal-title">${escapeHtml(g.title || 'Objectif')}</div>
+                <div class="subgoal-title">${_donEsc(g.title || 'Objectif')}</div>
                 ${done ? '<span class="done-badge">✅ Atteint !</span>' : ''}
               </div>
-              <div class="subgoal-desc">${escapeHtml(g.description || '')}</div>
+              <div class="subgoal-desc">${_donEsc(g.description || '')}</div>
               <div class="subgoal-bar-wrap">
                 <div class="subgoal-bar-fill" style="width:${pct}%;${done ? 'background:var(--green)' : ''}"></div>
               </div>
@@ -242,7 +268,6 @@ class AdminDonations {
                 <strong style="color:${done ? 'var(--green)' : 'var(--accent)'}">${cur.toFixed(2)} €</strong>
                 <span>/ ${tar.toFixed(2)} € — ${pct}%</span>
               </div>
-              <!-- Mise à jour rapide -->
               <div class="subgoal-quick-update">
                 <input class="admin-input" id="sq-input-${g.id}" type="number" step="0.01" placeholder="Ajouter € manuellement" style="max-width:160px;font-size:.78rem;padding:5px 9px">
                 <button class="admin-btn-sm" onclick="adminDonations._quickUpdate('${g.id}', ${cur})">+</button>
@@ -268,7 +293,8 @@ class AdminDonations {
     const input = document.getElementById(`sq-input-${goalId}`);
     const add = parseFloat(input?.value || 0);
     if (!add || add <= 0) { showToast('❌ Montant invalide.', 'error'); return; }
-    const sb = adminPanel.sb;
+    const sb = _donSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
     const newAmount = currentAmount + add;
     await sb.from('subgoals').update({ current_amount: newAmount }).eq('id', goalId);
     await sb.from('donations').insert({
@@ -285,11 +311,11 @@ class AdminDonations {
     this.loadOverview();
   }
 
-  // ── Historique dons ────────────────────────────────────────────
   async loadDonationHistory() {
-    const sb = adminPanel.sb;
+    const sb = _donSb();
     const container = document.getElementById('donations-history');
     if (!container) return;
+    if (!sb) { container.innerHTML = '<div class="admin-error">❌ Connexion non initialisée.</div>'; return; }
     try {
       const { data: donations, error } = await sb
         .from('donations').select('*').order('created_at', { ascending: false }).limit(30);
@@ -311,12 +337,12 @@ class AdminDonations {
             <tbody>
               ${donations.map(d => `
                 <tr id="don-${d.id}">
-                  <td class="user-date">${formatTime(d.created_at)}</td>
+                  <td class="user-date">${_donFmt(d.created_at)}</td>
                   <td><strong style="color:var(--green)">${parseFloat(d.amount || 0).toFixed(2)} €</strong></td>
-                  <td>${escapeHtml(d.donor_name || 'Anonyme')}</td>
+                  <td>${_donEsc(d.donor_name || 'Anonyme')}</td>
                   <td><span class="source-badge source-${d.source || 'manual'}">${d.source || 'manuel'}</span></td>
                   <td><span class="${d.status === 'completed' ? 'status-active' : 'status-banned'}">${d.status || '?'}</span></td>
-                  <td class="user-email">${escapeHtml(d.note || '—')}</td>
+                  <td class="user-email">${_donEsc(d.note || '—')}</td>
                   <td><button class="admin-btn-icon" onclick="adminDonations._deleteDon('${d.id}')">🗑️</button></td>
                 </tr>
               `).join('')}
@@ -331,17 +357,21 @@ class AdminDonations {
 
   async _deleteDon(id) {
     if (!confirm('Supprimer ce don de l\'historique ?')) return;
-    await adminPanel.sb.from('donations').delete().eq('id', id);
+    const sb = _donSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
+    await sb.from('donations').delete().eq('id', id);
     document.getElementById(`don-${id}`)?.remove();
     showToast('🗑️ Don supprimé.', 'success');
     this.loadOverview();
   }
 
   async _exportDonationsCSV() {
-    const { data } = await adminPanel.sb.from('donations').select('*').order('created_at', { ascending: false });
+    const sb = _donSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
+    const { data } = await sb.from('donations').select('*').order('created_at', { ascending: false });
     const rows = [['Date','Montant','Donateur','Source','Statut','Note','Transaction ID']];
     (data || []).forEach(d => rows.push([d.created_at, d.amount, d.donor_name || 'Anonyme', d.source || '', d.status || '', d.note || '', d.paypal_transaction_id || '']));
-    const csv = rows.map(r => r.join(',')).join('\n');
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `resteici-dons-${Date.now()}.csv`;
@@ -349,7 +379,6 @@ class AdminDonations {
     showToast('📤 Export CSV généré.', 'success');
   }
 
-  // ── Don manuel ─────────────────────────────────────────────────
   async manualAddDonation() {
     const amount   = parseFloat(document.getElementById('manual-amount')?.value || 0);
     const donor    = document.getElementById('manual-donor')?.value.trim() || 'Administrateur';
@@ -357,20 +386,20 @@ class AdminDonations {
     const goalId   = document.getElementById('manual-goal')?.value || '';
 
     if (!amount || amount <= 0) { showToast('❌ Montant invalide.', 'error'); return; }
-    const sb = adminPanel.sb;
+    const sb = _donSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
     try {
       await sb.from('donations').insert({
         amount, donor_name: donor, source: 'manual', status: 'completed',
         note, created_at: new Date().toISOString(),
       });
 
-      // Mettre à jour l'objectif ciblé ou le 1er
       let q = sb.from('subgoals').select('id, current_amount').order('created_at', { ascending: true }).limit(1);
       if (goalId) q = sb.from('subgoals').select('id, current_amount').eq('id', goalId).limit(1);
       const { data: goals } = await q;
       const goal = goals?.[0];
       if (goal) {
-        await sb.from('subgoals').update({ current_amount: (goal.current_amount || 0) + amount }).eq('id', goal.id);
+        await sb.from('subgoals').update({ current_amount: (parseFloat(goal.current_amount) || 0) + amount }).eq('id', goal.id);
       }
 
       document.getElementById('manual-amount').value = '';
@@ -383,12 +412,15 @@ class AdminDonations {
     } catch (err) { showToast('❌ Erreur : ' + err.message, 'error'); }
   }
 
-  // ── Select objectifs ───────────────────────────────────────────
   async _loadGoalSelect() {
     const sel = document.getElementById('manual-goal');
     if (!sel) return;
+    const sb = _donSb();
+    if (!sb) return;
     try {
-      const { data } = await adminPanel.sb.from('subgoals').select('id, title').order('created_at', { ascending: true });
+      const { data } = await sb.from('subgoals').select('id, title').order('created_at', { ascending: true });
+      // Vider les options existantes sauf la première (principal)
+      while (sel.options.length > 1) sel.remove(1);
       (data || []).forEach(g => {
         const opt = document.createElement('option');
         opt.value = g.id; opt.textContent = g.title || 'Objectif';
@@ -397,20 +429,10 @@ class AdminDonations {
     } catch {}
   }
 
-  // ── CRUD objectifs ─────────────────────────────────────────────
-  openCreateGoal() {
-    document.getElementById('goal-modal-title').textContent = 'Nouvel objectif';
-    ['goal-title','goal-desc','goal-icon'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('goal-target').value = '';
-    document.getElementById('goal-current').value = '0';
-    document.getElementById('goal-icon').value = '🎯';
-    document.getElementById('goal-order').value = '1';
-    document.getElementById('goal-edit-id').value = '';
-    document.getElementById('goal-modal-overlay').style.display = 'flex';
-  }
-
   async editGoal(id) {
-    const { data: g } = await adminPanel.sb.from('subgoals').select('*').eq('id', id).single();
+    const sb = _donSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
+    const { data: g } = await sb.from('subgoals').select('*').eq('id', id).single();
     if (!g) { showToast('❌ Objectif introuvable.', 'error'); return; }
     document.getElementById('goal-modal-title').textContent = 'Modifier l\'objectif';
     document.getElementById('goal-title').value   = g.title || '';
@@ -433,13 +455,15 @@ class AdminDonations {
       icon:           document.getElementById('goal-icon').value.trim() || '🎯',
     };
     if (!payload.title || !payload.target_amount) { showToast('❌ Titre et objectif requis.', 'error'); return; }
+    const sb = _donSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
     try {
       if (id) {
-        await adminPanel.sb.from('subgoals').update(payload).eq('id', id);
+        await sb.from('subgoals').update(payload).eq('id', id);
         showToast('✅ Objectif mis à jour.', 'success');
       } else {
         payload.created_at = new Date().toISOString();
-        await adminPanel.sb.from('subgoals').insert(payload);
+        await sb.from('subgoals').insert(payload);
         showToast('✅ Objectif créé !', 'success');
       }
       this.closeGoalModal();
@@ -450,7 +474,9 @@ class AdminDonations {
 
   async deleteGoal(id) {
     if (!confirm('Supprimer cet objectif ?')) return;
-    await adminPanel.sb.from('subgoals').delete().eq('id', id);
+    const sb = _donSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
+    await sb.from('subgoals').delete().eq('id', id);
     document.getElementById(`sg-${id}`)?.remove();
     showToast('🗑️ Objectif supprimé.', 'success');
     this.loadOverview();

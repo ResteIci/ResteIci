@@ -3,6 +3,22 @@
 // Page dédiée : signalements + posts en attente
 // ═══════════════════════════════════════════════════════════════
 
+// ✅ Fix : helpers locaux en cas de chargement hors-ordre
+function _modEsc(str) {
+  if (typeof escapeHtml === 'function') return escapeHtml(str);
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _modFmt(d) {
+  if (typeof formatTime === 'function') return formatTime(d);
+  if (!d) return '?';
+  return new Date(d).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+function _modSb() {
+  if (typeof adminPanel !== 'undefined' && adminPanel?.sb) return adminPanel.sb;
+  if (typeof sb !== 'undefined' && sb) return sb;
+  return null;
+}
+
 class AdminModeration {
   constructor() {}
 
@@ -52,7 +68,7 @@ class AdminModeration {
   }
 
   async loadReports() {
-    const sb = adminPanel.sb;
+    const sb = _modSb(); if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
     const container = document.getElementById('reports-list');
     if (!container) return;
 
@@ -78,16 +94,16 @@ class AdminModeration {
         <div class="report-card" id="rcard-${r.id}">
           <div class="report-card-header">
             <span class="report-tag">🚩 Signalement</span>
-            <span class="report-meta-time">${formatTime(r.created_at)}</span>
+            <span class="report-meta-time">${_modFmt(r.created_at)}</span>
           </div>
 
           <div class="report-by">
-            Par <strong>${escapeHtml(r.profiles?.display_name || 'Utilisateur')}</strong>
-            — Motif : <em>${escapeHtml(r.reason || 'Non précisé')}</em>
+            Par <strong>${_modEsc(r.profiles?.display_name || 'Utilisateur')}</strong>
+            — Motif : <em>${_modEsc(r.reason || 'Non précisé')}</em>
           </div>
 
           <div class="report-content-box">
-            "${escapeHtml((r.posts?.content || '').substring(0, 200))}${r.posts?.content?.length > 200 ? '…' : ''}"
+            "${_modEsc((r.posts?.content || '').substring(0, 200))}${r.posts?.content?.length > 200 ? '…' : ''}"
           </div>
 
           <div class="report-actions-row">
@@ -111,7 +127,7 @@ class AdminModeration {
   }
 
   async loadPending() {
-    const sb = adminPanel.sb;
+    const sb = _modSb(); if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
     const container = document.getElementById('pending-list');
     if (!container) return;
 
@@ -135,13 +151,13 @@ class AdminModeration {
         <div class="report-card" id="pcard-${p.id}">
           <div class="report-card-header">
             <span class="rp-type type-${p.type}">${p.type}</span>
-            <span class="report-meta-time">${formatTime(p.created_at)}</span>
+            <span class="report-meta-time">${_modFmt(p.created_at)}</span>
           </div>
           <div class="report-by">
-            Par <strong>${escapeHtml(p.profiles?.display_name || 'Anonyme')}</strong>
+            Par <strong>${_modEsc(p.profiles?.display_name || 'Anonyme')}</strong>
           </div>
           <div class="report-content-box">
-            ${escapeHtml(p.content || '')}
+            ${_modEsc(p.content || '')}
           </div>
           <div class="report-actions-row">
             <button class="admin-btn" onclick="adminModeration.approvePost('${p.id}')">✅ Approuver</button>
@@ -157,7 +173,7 @@ class AdminModeration {
   }
 
   async loadHistory() {
-    const sb = adminPanel.sb;
+    const sb = _modSb(); if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
     const container = document.getElementById('history-list');
     if (!container) return;
 
@@ -177,9 +193,9 @@ class AdminModeration {
       container.innerHTML = resolved.map(r => `
         <div class="history-item">
           <span class="history-tag">✅ Résolu</span>
-          <span>Par <strong>${escapeHtml(r.profiles?.display_name || '?')}</strong></span>
-          <span class="report-by">Motif: ${escapeHtml(r.reason || 'n/a')}</span>
-          <span class="rp-time">${formatTime(r.created_at)}</span>
+          <span>Par <strong>${_modEsc(r.profiles?.display_name || '?')}</strong></span>
+          <span class="report-by">Motif: ${_modEsc(r.reason || 'n/a')}</span>
+          <span class="rp-time">${_modFmt(r.created_at)}</span>
         </div>
       `).join('');
 
@@ -190,7 +206,7 @@ class AdminModeration {
 
   async deletePostAndResolve(reportId, postId, authorId) {
     if (!confirm('Supprimer ce post et résoudre le signalement ?')) return;
-    const sb = adminPanel.sb;
+    const sb = _modSb(); if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
     try {
       await Promise.all([
         sb.from('posts').delete().eq('id', postId),
@@ -213,15 +229,17 @@ class AdminModeration {
   }
 
   async ignoreReport(reportId) {
-    await adminPanel.sb.from('reports').update({ resolved: true }).eq('id', reportId);
+    const sb = _modSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
+    await sb.from('reports').update({ resolved: true }).eq('id', reportId);
     document.getElementById('rcard-' + reportId)?.remove();
     showToast('✅ Signalement ignoré.', 'success');
   }
 
   async warnUser(userId, reportId) {
-    if (!userId) { showToast('❌ ID utilisateur introuvable.', 'error'); return; }
-    // On peut envoyer une notification ou flaguer l'utilisateur
-    const sb = adminPanel.sb;
+    if (!userId || userId === 'undefined') { showToast('❌ ID utilisateur introuvable.', 'error'); return; }
+    const sb = _modSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
     await sb.from('profiles').update({ warned: true }).eq('id', userId);
     await sb.from('reports').update({ resolved: true }).eq('id', reportId);
     document.getElementById('rcard-' + reportId)?.remove();
@@ -229,14 +247,18 @@ class AdminModeration {
   }
 
   async approvePost(postId) {
-    await adminPanel.sb.from('posts').update({ approved: true }).eq('id', postId);
+    const sb = _modSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
+    await sb.from('posts').update({ approved: true }).eq('id', postId);
     document.getElementById('pcard-' + postId)?.remove();
     showToast('✅ Post approuvé.', 'success');
   }
 
   async deletePost(postId) {
     if (!confirm('Supprimer ce post ?')) return;
-    await adminPanel.sb.from('posts').delete().eq('id', postId);
+    const sb = _modSb();
+    if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
+    await sb.from('posts').delete().eq('id', postId);
     document.getElementById('pcard-' + postId)?.remove();
     showToast('🗑️ Post supprimé.', 'success');
   }

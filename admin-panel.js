@@ -59,30 +59,44 @@ function _fmt(dateStr) {
 }
 
 // ── Toast global ──
+// ✅ Fix : cherche d'abord le toast admin dans le shell, puis le toast global de app.js,
+//          crée un toast flottant en dernier recours — fonctionne dans tous les contextes.
 function showToast(msg, type = '') {
-  // Réutilise le toast existant si présent
+  // 1. Toast dans le shell admin (priorité)
   let toast = document.getElementById('admin-toast');
-  if (!toast) {
-    // Essaie le toast global de app.js
-    const globalToast = document.getElementById('toast');
-    if (globalToast) {
-      globalToast.textContent = msg;
-      globalToast.className = 'toast toast-' + type;
-      globalToast.style.display = 'block';
-      clearTimeout(globalToast._t);
-      globalToast._t = setTimeout(() => { globalToast.style.display = 'none'; }, 3000);
-      return;
-    }
-    toast = document.createElement('div');
-    toast.id = 'admin-toast';
-    document.body.appendChild(toast);
+  if (toast) {
+    toast.textContent = msg;
+    toast.className = 'admin-toast admin-toast-show admin-toast-' + type;
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => { toast.className = 'admin-toast'; }, 3200);
+    return;
   }
-  toast.textContent = msg;
-  toast.className = 'admin-toast admin-toast-show admin-toast-' + type;
-  clearTimeout(toast._hideTimer);
-  toast._hideTimer = setTimeout(() => {
-    toast.className = 'admin-toast';
-  }, 3200);
+  // 2. Toast global de app.js
+  const globalToast = document.getElementById('toast');
+  if (globalToast) {
+    globalToast.textContent = msg;
+    globalToast.className = 'toast show toast-' + type;
+    globalToast.style.display = 'block';
+    clearTimeout(globalToast._t);
+    globalToast._t = setTimeout(() => {
+      globalToast.className = 'toast';
+      globalToast.style.display = 'none';
+    }, 3000);
+    return;
+  }
+  // 3. Création d'un toast temporaire (fallback)
+  const tmp = document.createElement('div');
+  tmp.textContent = msg;
+  tmp.style.cssText = `
+    position:fixed;bottom:22px;right:22px;z-index:9999;
+    padding:11px 16px;border-radius:9px;font-size:.83rem;font-weight:600;
+    background:#14171f;border:1px solid rgba(255,255,255,.15);
+    color:${type === 'error' ? '#e07878' : type === 'success' ? '#72c98a' : '#eceaf5'};
+    box-shadow:0 8px 32px rgba(0,0,0,.5);pointer-events:none;
+    animation:adminToastIn .28s cubic-bezier(.4,0,.2,1);
+  `;
+  document.body.appendChild(tmp);
+  setTimeout(() => tmp.remove(), 3200);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -128,6 +142,10 @@ class AdminPanel {
     if (!ok) return this.showDeniedAccess();
 
     _logAction('Accès dashboard');
+
+    // ✅ Fix : mémoriser la page active avant d'entrer dans l'admin
+    const activePage = document.querySelector('[id^="page-"]:not(.hidden)');
+    this._previousPage = activePage?.id || 'page-home';
 
     // Cacher les pages principales
     document.querySelectorAll('[id^="page-"]').forEach(el => el.classList.add('hidden'));
@@ -1057,6 +1075,8 @@ CREATE POLICY IF NOT EXISTS "read_announcements" ON announcements FOR SELECT USI
       const typeClass = { info: 'ann-info', warning: 'ann-warning', success: 'ann-success', urgent: 'ann-urgent' };
       const typeBadge = { info: 'ann-badge-info', warning: 'ann-badge-warning', success: 'ann-badge-success', urgent: 'ann-badge-urgent' };
 
+      // ✅ Fix : on construit le HTML puis on attache les listeners via JS
+      //          pour éviter tout problème de guillemets/apostrophes dans les données
       container.innerHTML = anns.map(a => `
         <div class="announcement-card ${typeClass[a.type] || 'ann-info'}" id="ann-${a.id}">
           <div class="ann-header">
@@ -1068,13 +1088,19 @@ CREATE POLICY IF NOT EXISTS "read_announcements" ON announcements FOR SELECT USI
           </div>
           <div class="ann-content">${_esc(a.content || '')}</div>
           <div class="ann-actions">
-            <button class="admin-btn-sm" onclick="adminPanel._editAnnouncement(${JSON.stringify(a).replace(/"/g, '&quot;').replace(/'/g, '&#39;')})">✏️ Modifier</button>
+            <button class="admin-btn-sm ann-edit-btn" data-id="${a.id}">✏️ Modifier</button>
             <button class="admin-btn-sm" onclick="adminPanel._toggleAnnouncement('${a.id}', ${!a.active})">${a.active ? '⏸️ Désactiver' : '▶️ Activer'}</button>
             <button class="admin-btn-danger" onclick="adminPanel._deleteAnnouncement('${a.id}')">🗑️</button>
             <span class="rp-time">${_fmt(a.created_at)}</span>
           </div>
         </div>
       `).join('');
+
+      // Attacher les données d'édition via JS (pas via onclick inline)
+      anns.forEach(a => {
+        const btn = container.querySelector(`.ann-edit-btn[data-id="${a.id}"]`);
+        if (btn) btn.addEventListener('click', () => this._openAnnouncementModal(a));
+      });
     } catch (err) {
       container.innerHTML = `<div class="admin-error">❌ Table <code>announcements</code> introuvable. Crée-la via Santé système.</div>`;
     }
@@ -1090,12 +1116,9 @@ CREATE POLICY IF NOT EXISTS "read_announcements" ON announcements FOR SELECT USI
     document.getElementById('ann-modal-overlay').style.display = 'flex';
   }
 
-  _editAnnouncement(dataEncoded) {
-    // dataEncoded peut être un objet (quand appelé depuis JS) ou string (depuis HTML attr)
-    const data = typeof dataEncoded === 'string'
-      ? JSON.parse(dataEncoded.replace(/&quot;/g, '"').replace(/&#39;/g, "'"))
-      : dataEncoded;
-    this._openAnnouncementModal(data);
+  _editAnnouncement(data) {
+    // ✅ Fix : appelé directement avec l'objet JS (plus de string HTML à parser)
+    this._openAnnouncementModal(typeof data === 'string' ? JSON.parse(data) : data);
   }
 
   async _saveAnnouncement() {
@@ -1252,15 +1275,28 @@ CREATE POLICY IF NOT EXISTS "read_announcements" ON announcements FOR SELECT USI
     try {
       this._toolsOutput('🔄 Recalcul en cours…', 'info');
       const { data: posts } = await this.sb.from('posts').select('id');
-      let updated = 0;
-      for (const post of (posts || [])) {
-        const [{ count: rc }, { count: rep }] = await Promise.all([
-          this.sb.from('reactions').select('*', { count: 'exact', head: true }).eq('post_id', post.id),
-          this.sb.from('replies').select('*', { count: 'exact', head: true }).eq('post_id', post.id),
-        ]);
-        await this.sb.from('posts').update({ reaction_total: rc || 0, reply_count: rep || 0 }).eq('id', post.id);
-        updated++;
+      if (!posts || posts.length === 0) {
+        this._toolsOutput('✅ Aucun post à recalculer.', 'success');
+        return;
       }
+
+      // ✅ Fix : traitement par lots de 10 pour éviter les timeouts
+      const BATCH = 10;
+      let updated = 0;
+      for (let i = 0; i < posts.length; i += BATCH) {
+        const batch = posts.slice(i, i + BATCH);
+        await Promise.all(batch.map(async post => {
+          const [{ count: rc }, { count: rep }] = await Promise.all([
+            this.sb.from('reactions').select('*', { count: 'exact', head: true }).eq('post_id', post.id),
+            this.sb.from('replies').select('*', { count: 'exact', head: true }).eq('post_id', post.id),
+          ]);
+          await this.sb.from('posts').update({ reaction_total: rc || 0, reply_count: rep || 0 }).eq('id', post.id);
+          updated++;
+        }));
+        // Mise à jour visuelle de la progression
+        this._toolsOutput(`🔄 Traitement : ${updated}/${posts.length} posts…`, 'info');
+      }
+
       _logAction('Compteurs recalculés', `${updated} posts`);
       this._toolsOutput(`✅ Compteurs recalculés pour ${updated} posts.`, 'success');
     } catch (err) { this._toolsOutput('❌ ' + err.message, 'error'); }
@@ -1389,11 +1425,22 @@ CREATE POLICY IF NOT EXISTS "read_announcements" ON announcements FOR SELECT USI
     const shell = document.getElementById('admin-shell');
     if (shell) shell.style.display = 'none';
 
-    document.querySelectorAll('[id^="page-"]').forEach(el =>
-      el.classList.toggle('hidden', el.id !== 'page-home')
-    );
+    // ✅ Fix : restaure toutes les pages correctement
+    //          montre page-home si aucune autre page n'était active
+    const allPages = document.querySelectorAll('[id^="page-"]');
+    const hadActivePage = this._previousPage && document.getElementById(this._previousPage);
+
+    allPages.forEach(el => {
+      if (hadActivePage) {
+        el.classList.toggle('hidden', el.id !== this._previousPage);
+      } else {
+        el.classList.toggle('hidden', el.id !== 'page-home');
+      }
+    });
+    this._previousPage = null;
+
     const navTabs = document.getElementById('nav-tabs');
-    if (navTabs) navTabs.style.display = 'block';
+    if (navTabs) navTabs.style.display = '';
 
     window.history.replaceState({}, '', window.location.pathname);
     _logAction('Sortie du panel');
@@ -1846,6 +1893,10 @@ styleAdmin.textContent = `
 .form-row-admin { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 
 /* ── Toast ───────────────────────────────────────────────────── */
+@keyframes adminToastIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
 .admin-toast {
   position:fixed; bottom:22px; right:22px; z-index:3000;
   padding:11px 16px; border-radius:9px; font-size:.83rem; font-weight:600;
