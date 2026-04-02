@@ -498,13 +498,13 @@ a { color: inherit; text-decoration: none; }
   </div>
 </section>
 
-<section class="stats-section">
+<section class="stats-section" id="about-stats">
   <div class="stat-item">
-    <div class="stat-number">+1000</div>
+    <div class="stat-number" id="about-members">—</div>
     <div class="stat-label">Membres actifs</div>
   </div>
   <div class="stat-item">
-    <div class="stat-number">+ 5k</div>
+    <div class="stat-number" id="about-posts">—</div>
     <div class="stat-label">Messages de soutien</div>
   </div>
   <div class="stat-item">
@@ -516,6 +516,42 @@ a { color: inherit; text-decoration: none; }
     <div class="stat-label">Jugements</div>
   </div>
 </section>
+
+<script>
+(async () => {
+  try {
+    // SUPABASE_URL et SUPABASE_ANON_KEY doivent être chargés via config.js
+    // Sur cette page standalone, on les reprend directement
+    const SB_URL = 'https://wvyyroydatrgbrofqwyp.supabase.co';
+    const SB_KEY = 'sb_publishable_HaVAyH8F0GfdgaZB8QTPRQ_-jXz_MY_';
+    const sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+    const [membersRes, postsRes] = await Promise.all([
+      sb.from('profiles').select('*', { count: 'exact', head: true }).eq('banned', false),
+      sb.from('posts').select('*', { count: 'exact', head: true }).eq('approved', true),
+    ]);
+
+    function animCount(id, target) {
+      const el = document.getElementById(id);
+      if (!el || !target) return;
+      let cur = 0;
+      const step = Math.max(1, Math.ceil(target / 25));
+      const t = setInterval(() => {
+        cur = Math.min(cur + step, target);
+        el.textContent = '+' + cur.toLocaleString('fr-FR');
+        if (cur >= target) clearInterval(t);
+      }, 35);
+    }
+
+    animCount('about-members', membersRes.count || 0);
+    animCount('about-posts',   postsRes.count   || 0);
+  } catch {
+    // Fallback si Supabase non disponible
+    document.getElementById('about-members').textContent = '+1 000';
+    document.getElementById('about-posts').textContent   = '+5 000';
+  }
+})();
+</script>
 
 <section class="cta-section">
   <h2>Prêt(e) à rejoindre ?</h2>

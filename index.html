@@ -14,6 +14,7 @@
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
 <link rel="stylesheet" href="animations.css">
+<script src="config.js" defer></script>
 <script src="i18n.js" defer></script>
 <script src="grok-integration.js" defer></script>
 <script src="user-levels.js" defer></script>
@@ -963,28 +964,11 @@ body::after {
   </div>
 </footer>
 
-<!-- ═══ CONFIG — SEULE SECTION À MODIFIER ══════════════════════ -->
-<script>
-/*
-  ⚠️  IMPORTANT — SÉCURITÉ
-  ─────────────────────────────────────────────────────────────
-  La clé SUPABASE_ANON_KEY est une clé PUBLIQUE (anon/publishable).
-  Elle est faite pour être visible côté client. Ce n'est PAS un secret.
-  La sécurité réelle est gérée par les Row Level Security (RLS) de Supabase.
-
-  Ce qui ne doit JAMAIS être ici : ta clé Grok/xAI.
-  Elle est appelée via une Supabase Edge Function côté serveur.
-  ─────────────────────────────────────────────────────────────
-*/
-const SUPABASE_URL      = 'https://wvyyroydatrgbrofqwyp.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_HaVAyH8F0GfdgaZB8QTPRQ_-jXz_MY_';
-</script>
+<!-- config.js est chargé en <head> — SUPABASE_URL et SUPABASE_ANON_KEY y sont définis -->
 
 <script src="app.js" defer></script>
-
-<!-- ✅ AJOUTE ICI -->
-<script src="subgoals-widget.js"></script>
-<script src="index-patch.js"></script>
+<script src="subgoals-widget.js" defer></script>
+<script src="index-patch.js" defer></script>
 
 <script>
 // Affiche le bouton admin dans le menu si l'utilisateur est admin

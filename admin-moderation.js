@@ -80,17 +80,31 @@ class AdminModeration {
         .order('created_at', { ascending: false })
         .limit(30);
 
-      if (error) throw error;
+      // Si la jointure via FK nommée échoue, on tente sans contrainte de nom
+      let finalReports = reports;
+      if (error && error.message?.includes('fkey')) {
+        console.warn('FK reports_reporter_id_fkey introuvable — tentative sans jointure profil :', error.message);
+        const fallback = await sb
+          .from('reports')
+          .select('id, reason, post_id, created_at, reporter_id, posts(id, content, user_id)', { count: 'exact' })
+          .eq('resolved', false)
+          .order('created_at', { ascending: false })
+          .limit(30);
+        if (fallback.error) throw fallback.error;
+        finalReports = (fallback.data || []).map(r => ({ ...r, profiles: { display_name: 'Utilisateur' } }));
+      } else if (error) {
+        throw error;
+      }
 
       const badge = document.getElementById('mod-reports-count');
       if (badge) badge.textContent = count || 0;
 
-      if (!reports || reports.length === 0) {
+      if (!finalReports || finalReports.length === 0) {
         container.innerHTML = '<div class="admin-empty">✅ Aucun signalement en attente. Beau travail !</div>';
         return;
       }
 
-      container.innerHTML = reports.map(r => `
+      container.innerHTML = finalReports.map(r => `
         <div class="report-card" id="rcard-${r.id}">
           <div class="report-card-header">
             <span class="report-tag">🚩 Signalement</span>
@@ -178,12 +192,21 @@ class AdminModeration {
     if (!container) return;
 
     try {
-      const { data: resolved } = await sb
+      let { data: resolved, error: histErr } = await sb
         .from('reports')
         .select('id, reason, resolved_at, created_at, profiles!reports_reporter_id_fkey(display_name)')
         .eq('resolved', true)
         .order('created_at', { ascending: false })
         .limit(20);
+
+      if (histErr && histErr.message?.includes('fkey')) {
+        const fallback = await sb.from('reports')
+          .select('id, reason, resolved_at, created_at')
+          .eq('resolved', true)
+          .order('created_at', { ascending: false })
+          .limit(20);
+        resolved = (fallback.data || []).map(r => ({ ...r, profiles: { display_name: '?' } }));
+      }
 
       if (!resolved || resolved.length === 0) {
         container.innerHTML = '<div class="admin-empty">Aucun historique de modération.</div>';
@@ -240,7 +263,15 @@ class AdminModeration {
     if (!userId || userId === 'undefined') { showToast('❌ ID utilisateur introuvable.', 'error'); return; }
     const sb = _modSb();
     if (!sb) { showToast('❌ Connexion non initialisée.', 'error'); return; }
-    await sb.from('profiles').update({ warned: true }).eq('id', userId);
+
+    // Tentative de mise à jour avec la colonne warned
+    // Si la colonne n'existe pas encore en BDD, on continue quand même (résolution du signalement)
+    const { error: warnErr } = await sb.from('profiles').update({ warned: true }).eq('id', userId);
+    if (warnErr) {
+      // Colonne absente : log et on continue (ne pas bloquer la résolution du signalement)
+      console.warn('⚠️  Colonne "warned" absente de profiles — ajoute : ALTER TABLE profiles ADD COLUMN warned BOOLEAN DEFAULT false;');
+    }
+
     await sb.from('reports').update({ resolved: true }).eq('id', reportId);
     document.getElementById('rcard-' + reportId)?.remove();
     showToast('⚠️ Utilisateur averti.', 'success');
